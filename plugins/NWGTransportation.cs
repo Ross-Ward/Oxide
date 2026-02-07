@@ -140,7 +140,7 @@ namespace Oxide.Plugins
                     {
                         Puts("[NWG Transportation] CRITICAL: Could not find Outpost monument! Please set manually with /setwarp outpost.");
                     }
-                }
+            }
         }
 
         private void Unload()
@@ -192,6 +192,7 @@ namespace Oxide.Plugins
             if (_pendingTeleports.ContainsKey(player.userID))
             {
                 _pendingTeleports[player.userID].Destroy();
+                _pendingTeleports.Remove(player.userID);
             }
 
             _pendingTeleports[player.userID] = timer.Once(_config.TeleportTimer, () =>
