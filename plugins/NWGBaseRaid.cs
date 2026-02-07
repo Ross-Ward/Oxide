@@ -26,6 +26,7 @@ namespace Oxide.Plugins
         {
             var attacker = info?.Initiator as BasePlayer;
             if (attacker == null || attacker == victim) return;
+            if (victim.IsNpc || !victim.userID.IsSteamId()) return; // Prevent NPCs/Bots from dropping keys
 
             if (UnityEngine.Random.Range(0f, 100f) <= 25f)
             {
