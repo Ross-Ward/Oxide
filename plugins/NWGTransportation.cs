@@ -112,21 +112,28 @@ namespace Oxide.Plugins
                 var wp = _config.Warps["outpost"];
                 if (wp.x == 0 && wp.y == 0 && wp.z == 0)
                 {
-                    // Find Monument
-                    var outpost = TerrainMeta.Path.Monuments.FirstOrDefault(m => m.displayPhrase.english.Contains("Outpost") || m.name.Contains("compound"));
+                    Puts("[NWG Transportation] Searching for Outpost...");
+                    
+                    // Debug all monuments
+                    // foreach (var m in TerrainMeta.Path.Monuments) Puts($"Monument: {m.displayPhrase.english} | {m.name}");
+
+                    var outpost = TerrainMeta.Path.Monuments.FirstOrDefault(m => 
+                        (m.displayPhrase.english != null && m.displayPhrase.english.Contains("Outpost")) || 
+                        (m.name != null && (m.name.Contains("compound") || m.name.Contains("outpost"))));
+
                     if (outpost != null)
                     {
                         var pos = outpost.transform.position;
                         wp.x = pos.x; 
-                        wp.y = pos.y + 2; 
+                        wp.y = pos.y + 10; // Be safe
                         wp.z = pos.z;
                         
-                        Puts($"[NWG Transportation] Auto-updated 'outpost' warp to {pos}");
+                        Puts($"[NWG Transportation] FOUND OUTPOST at {pos}. Warp updated.");
                         SaveConfig();
                     }
                     else
                     {
-                         Puts("[NWG Transportation] Could not find Outpost monument to auto-set warp.");
+                         Puts("[NWG Transportation] CRITICAL: Could not find Outpost monument! Please set manually with /setwarp outpost.");
                     }
                 }
             }

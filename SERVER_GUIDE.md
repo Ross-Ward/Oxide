@@ -51,6 +51,7 @@ All commands support both `/` and `!` prefixes.
 | `/dungeon start <private/group>` | Start a Personal/Group Raid Instance |
 | `/dungeon stopall` | Stop ALL active Raid Dungeons |
 | `/event spawn` | Manually trigger a random PvE encounter |
+| `/goadminduty` | Toggle Admin Powers (On/Off Duty) |
 | `/perms` | Manage player/group permissions visually |
 
 ---

