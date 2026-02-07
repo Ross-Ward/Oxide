@@ -102,6 +102,36 @@ namespace Oxide.Plugins
             SaveConfig();
         }
 
+        private void OnServerInitialized()
+        {
+            if (_config == null || _config.Warps == null) return;
+
+            // Auto-detect Outpost if set to placeholder
+            if (_config.Warps.ContainsKey("outpost"))
+            {
+                var wp = _config.Warps["outpost"];
+                if (wp.x == 0 && wp.y == 0 && wp.z == 0)
+                {
+                    // Find Monument
+                    var outpost = TerrainMeta.Path.Monuments.FirstOrDefault(m => m.displayPhrase.english.Contains("Outpost") || m.name.Contains("compound"));
+                    if (outpost != null)
+                    {
+                        var pos = outpost.transform.position;
+                        wp.x = pos.x; 
+                        wp.y = pos.y + 2; 
+                        wp.z = pos.z;
+                        
+                        Puts($"[NWG Transportation] Auto-updated 'outpost' warp to {pos}");
+                        SaveConfig();
+                    }
+                    else
+                    {
+                         Puts("[NWG Transportation] Could not find Outpost monument to auto-set warp.");
+                    }
+                }
+            }
+        }
+
         private void Unload()
         {
             Interface.Oxide.DataFileSystem.WriteObject("NWG_Transportation", _data);

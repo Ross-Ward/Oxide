@@ -170,10 +170,18 @@ namespace Oxide.Plugins
             // Services
             var cmdCat = new ShopCategory { Name = "Services" };
             cmdCat.Items.Add(new ShopItem { 
-                ShortName = "raidevent", 
-                DisplayName = "Start Raid Event",
-                Command = "nwg.raidevent start",
-                BuyPrice = 2000, 
+                ShortName = "raidevent.private", 
+                DisplayName = "Start Private Raid",
+                Command = "nwg.dungeon start private {steamid}",
+                BuyPrice = 2500, 
+                SellPrice = 0,
+                ImageUrl = "https://i.imgur.com/example_raid.png"
+            });
+            cmdCat.Items.Add(new ShopItem { 
+                ShortName = "raidevent.group", 
+                DisplayName = "Start Group Raid",
+                Command = "nwg.dungeon start group {steamid}",
+                BuyPrice = 5000, 
                 SellPrice = 0 
             });
             _config.Categories.Add(cmdCat);
@@ -261,7 +269,11 @@ namespace Oxide.Plugins
 
                 if (!string.IsNullOrEmpty(item.Command))
                 {
-                    ConsoleSystem.Run(ConsoleSystem.Option.Server, item.Command);
+                    string cmd = item.Command
+                        .Replace("{steamid}", player.UserIDString)
+                        .Replace("{username}", player.displayName);
+                        
+                    ConsoleSystem.Run(ConsoleSystem.Option.Server, cmd);
                     SendReply(player, $"Purchased {item.DisplayName ?? item.ShortName}!");
                 }
                 else

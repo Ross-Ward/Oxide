@@ -47,7 +47,9 @@ All commands support both `/` and `!` prefixes.
 | `/bring <name>` | Bring a player to your location |
 | `/heal <name>` | Restore player health/food/water |
 | `/kick/ban` | Punish troublesome players |
-| `/dungeon` | Start/Stop Raid Dungeon events |
+| `/dungeon start global` | Start a GLOBAL Raid Event (Sphere Tank) |
+| `/dungeon start <private/group>` | Start a Personal/Group Raid Instance |
+| `/dungeon stopall` | Stop ALL active Raid Dungeons |
 | `/event spawn` | Manually trigger a random PvE encounter |
 | `/perms` | Manage player/group permissions visually |
 

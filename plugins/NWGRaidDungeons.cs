@@ -116,6 +116,34 @@ namespace Oxide.Plugins
                 player.ChatMessage("Stopped all dungeons.");
             }
         }
+
+        [ConsoleCommand("nwg.dungeon")]
+        private void ConsoleDungeon(ConsoleSystem.Arg arg)
+        {
+            // Usage: nwg.dungeon start private <steamid>
+            if (!arg.IsAdmin && arg.Connection != null) return;
+
+            string action = arg.GetString(0).ToLower();
+            if (action == "start" && arg.Args.Length >= 3)
+            {
+                string typeStr = arg.GetString(1).ToLower();
+                ulong targetId = arg.GetULong(2);
+                BasePlayer target = BasePlayer.Find(targetId.ToString());
+
+                if (target == null) { Puts($"Player {targetId} not found for dungeon start."); return; }
+
+                if (typeStr == "private")
+                {
+                    StartDungeon(DungeonType.Private, target);
+                    target.ChatMessage("Your purchased Private Dungeon is ready!");
+                }
+                else if (typeStr == "group")
+                {
+                    StartDungeon(DungeonType.Group, target);
+                    target.ChatMessage("Your purchased Group Dungeon is ready!");
+                }
+            }
+        }
         #endregion
 
         #region Event Logic
