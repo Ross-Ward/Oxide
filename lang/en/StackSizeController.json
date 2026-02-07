@@ -1,0 +1,6 @@
+{
+  "NotEnoughArguments": "This command requires {0} arguments.",
+  "InvalidItemShortnameOrId": "Item shortname or id is incorrect. Try stacksizecontroller.itemsearch [partial item name]",
+  "InvalidCategory": "Category not found. Try stacksizecontroller.listcategories",
+  "OperationSuccessful": "Operation completed successfully."
+}

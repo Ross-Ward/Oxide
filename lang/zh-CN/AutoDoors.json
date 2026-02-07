@@ -1,0 +1,23 @@
+{
+  "NotAllowed": "您没有权限使用该命令",
+  "Enabled": "<color=#8ee700>已启用</color>",
+  "Disabled": "<color=#ce422b>已禁用</color>",
+  "AutoDoor": "自动关门现在的状态为 {0}",
+  "AutoDoorDelay": "自动关门延迟设置为 {0}秒",
+  "AutoDoorDelayAll": "全部门的自动关闭延迟设置为 {0}秒",
+  "DoorNotFound": "请您看着一条门再输入指令",
+  "DoorNotSupported": "不支持您看着的这种门",
+  "AutoDoorDelayLimit": "自动关门延迟应该在 {0}秒 和 {1}秒 之间",
+  "AutoDoorSingle": "这条 <color=#4DFF4D>{0}</color> 的自动关闭状态为 {1}",
+  "AutoDoorSingleDelay": "这条 <color=#4DFF4D>{0}</color> 的自动关闭延迟为 {1}秒",
+  "AutoDoorType": "这种 <color=#4DFF4D>{0}</color> 的自动关闭状态为 {1}",
+  "AutoDoorTypeDelay": "这种 <color=#4DFF4D>{0}</color> 的自动关闭延迟为 {1}秒",
+  "SyntaxError": "语法错误, 输入 '<color=#ce422b>/{0} <help | h></color>' 查看帮助",
+  "AutoDoorSyntax": "<color=#ce422b>/{0} </color> - 启用/禁用自动关门",
+  "AutoDoorSyntax1": "<color=#ce422b>/{0} [时间 (秒)]</color> - 设置自动关门延迟。(时间在 {1}秒 和 {2}秒 之间) (不包括'single'和'type'设置的门)",
+  "AutoDoorSyntax2": "<color=#ce422b>/{0} <single | s></color> - 为您看着的这条门，启用/禁用自动关门",
+  "AutoDoorSyntax3": "<color=#ce422b>/{0} <single | s> [时间 (秒)]</color> - 为您看着的这条门设置自动关闭延迟。(时间在 {1}秒 和 {2}秒 之间)",
+  "AutoDoorSyntax4": "<color=#ce422b>/{0} <type | t></color> - 为您看着的这种门，启用/禁用自动关门",
+  "AutoDoorSyntax5": "<color=#ce422b>/{0} <type | t> [时间 (秒)]</color> - 为您看着的这种门设置自动关闭延迟。(时间在 {1}秒 和 {2}秒 之间)",
+  "AutoDoorSyntax6": "<color=#ce422b>/{0} <all | a> [时间 (秒)]</color> - 为所有门设置自动关闭延迟。(时间在 {1}秒 和 {2}秒 之间)"
+}

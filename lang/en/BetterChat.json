@@ -1,0 +1,13 @@
+{
+  "Group Already Exists": "Group '{group}' already exists.",
+  "Group Does Not Exist": "Group '{group}' doesn't exist.",
+  "Group Field Changed": "Changed {field} to {value} for group '{group}'.",
+  "Group Added": "Successfully added group '{group}'.",
+  "Group Removed": "Successfully removed group '{group}'.",
+  "Invalid Field": "{field} is not a valid field. Type 'chat group set' to list all existing fields.",
+  "Invalid Value": "'{value}' is not a correct value for field '{field}'! Should be a '{type}'.",
+  "Player Already In Group": "{player} already is in group '{group}'.",
+  "Added To Group": "{player} was added to group '{group}'.",
+  "Player Not In Group": "{player} is not in group '{group}'.",
+  "Removed From Group": "{player} was removed from group '{group}'."
+}

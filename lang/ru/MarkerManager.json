@@ -1,0 +1,7 @@
+{
+  "Usage": "<color=#00ffff>Используйте:</color>\n <color=#00ffff>/marker add</color> name(code name) duration(секунды, 0 - неудолямый) refreshRate(30) radius(0.4) displayName (Названия маркера на карте) colorInline (HEX) colorOutline (HEX) alpha (прозрачность 0.75) - Добавить маркер на карту\n <color=#00ffff>/marker remove</color> name (code name, только для маркеров созданных командой) - Удалить маркер с карты",
+  "Permission": "У вас недостаточно разрешений для использования этой команды!",
+  "Added": "Маркер '{0}' был добавлен {1}!",
+  "Removed": "{0} маркер(а) с таким названием были удалены!",
+  "RemovedOldVersion": "Вам нужно удалить плагин MarkerManager. Данные плагины не совместимы!"
+}

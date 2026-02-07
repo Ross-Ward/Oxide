@@ -1,0 +1,7 @@
+{
+  "NoPermission": "<color=#ff0000>У вас нет разрешения!</color>",
+  "ExampleCommands": "[<color=#ffbd33>Примеры команд</color>] \n[<color=#ffbd33>/npc count</color>] - Покажет сколько НПС на карте. \n[<color=#ffbd33>/npc kill</color>] - Убьёт всех НПС на карте. \n[<color=#ffbd33>/npc respawn</color>] - Респавн всех НПС на карте. \n[<color=#ffbd33>/npc reload</color>] - Перезагрузить плагин.",
+  "NpcCount": "<color=#00ce10>На карте появилось</color>",
+  "NpcKill": "<color=#00ce10>Убить всех НПС</color> [<color=#ffbd33>OK</color>]",
+  "ReloadPlugin": "<color=#00ce10>Перезагружен плагин SpawnNPC</color> [<color=#ffbd33>OK</color>]"
+}

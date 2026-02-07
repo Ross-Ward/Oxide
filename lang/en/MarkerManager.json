@@ -1,0 +1,7 @@
+{
+  "Usage": "<color=#00ffff>Usage:</color>\n <color=#00ffff>/marker add</color> name(code name) duration(seconds, 0 to permanent) refreshRate(30) radius(0.4) displayName (on map) colorInline (HEX) colorOutline (HEX) alpha (0.75)  - Add marker on map\n <color=#00ffff>/marker remove</color> name (code name, only for custom markers) - Remove marker from map",
+  "Permission": "You don't have permission to use that!",
+  "Added": "Marker '{0}' was added on {1}!",
+  "Removed": "{0} markers with that name was removed!",
+  "RemovedOldVersion": "You need to remove the MarkerManager plugin. These plugins are not compatible!"
+}

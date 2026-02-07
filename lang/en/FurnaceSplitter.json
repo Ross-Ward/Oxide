@@ -1,0 +1,14 @@
+{
+  "turnon": "Turn On",
+  "turnoff": "Turn Off",
+  "title": "Furnace Splitter",
+  "eta": "ETA",
+  "totalstacks": "Total stacks",
+  "trim": "Trim fuel",
+  "lootsource_invalid": "Current loot source invalid",
+  "unsupported_furnace": "Unsupported furnace.",
+  "nopermission": "You don't have permission to use this.",
+  "StatusONColor": "<color=green>ON</color>",
+  "StatusOFFColor": "<color=red>OFF</color>",
+  "StatusMessage": "Furnace Splitter status set to: "
+}

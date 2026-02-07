@@ -1,0 +1,11 @@
+# Oxide/Rust Server Ignores
+logs/
+data/
+*.log
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
+
+# Sensitive Configs (Optional: keep if you want versioned, ignore if they contain secrets)
+# config/*.json

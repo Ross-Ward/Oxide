@@ -1,0 +1,23 @@
+{
+  "FILE_NOT_EXISTS": "Файл не существует",
+  "FILE_BROKEN": "Файл поврежден, вставка невозможна",
+  "NO_ACCESS": "У вас нет прав доступа к данной команде",
+  "SYNTAX_PASTEBACK": "Синтаксис: /pasteback <Название Объекта> <опция значение>\nheight XX - Высота от земли\nvending - Информация и товары в торговом автомате",
+  "SYNTAX_PASTE_OR_PASTEBACK": "Синтаксис: /paste or /pasteback <Название Объекта> <опция значение>\nheight XX - Высота от земли\nautoheight true/false - автоматически подобрать высоту от земли\nblockcollision XX - блокировать вставку, если что-то этому мешает\ndeployables true/false - false для удаления предметов\ninventories true/false - false для игнорирования копирования инвентаря\nvending - Информация и товары в торговом автомате",
+  "PASTEBACK_SUCCESS": "Постройка успешно вставлена на старое место",
+  "PASTE_SUCCESS": "Постройка успешно вставлена",
+  "SYNTAX_COPY": "Синтаксис: /copy <Название Объекта> <опция значение>\nradius XX (default 3)\nmethod proximity/building (по умолчанию proximity)\ndeployables true/false (сохранять предметы или нет)\ninventories true/false (сохранять инвентарь или нет)",
+  "NO_ENTITY_RAY": "Не удалось найти какой-либо объект перед вами",
+  "COPY_SUCCESS": "Постройка успешно скопирована под названием: {0}",
+  "NO_PASTED_STRUCTURE": "Вы должны вставить постройку перед тем, как отменить действие",
+  "UNDO_SUCCESS": "Вы успешно снесли вставленную постройку",
+  "NOT_FOUND_PLAYER": "Не удалось найти игрока",
+  "SYNTAX_SKINSMODE": "Опция {0} должна быть <0-4> 0=без скинов, 1=все, 2=без платных скинов, 3=только разрешенные, 4=блокировать указанные",
+  "SYNTAX_BOOL": "Опция {0} принимает значения true/false",
+  "SYNTAX_FLOAT": "Опция {0} принимает только числовые значения с точкой",
+  "SYNTAX_HEIGHT": "Опция height принимает только числовые значения",
+  "SYNTAX_BLOCKCOLLISION": "Опция blockcollision принимает только числовые значения, 0 позволяет отключить проверку",
+  "SYNTAX_RADIUS": "Опция radius принимает только числовые значения",
+  "BLOCKING_PASTE": "Что-то препятствует вставке",
+  "AVAILABLE_STRUCTURES": "<color=orange>Доступные постройки:</color>"
+}

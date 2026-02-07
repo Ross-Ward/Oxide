@@ -1,0 +1,7 @@
+{
+  "NoPermission": "<color=#ff0000>You do not have permission!</color>",
+  "ExampleCommands": "[<color=#ffbd33>Example Commands</color>] \n[<color=#ffbd33>/npc count</color>] - Shows how many NPCs are on the map. \n[<color=#ffbd33>/npc kill</color>] - Kill all NPCs on the map. \n[<color=#ffbd33>/npc respawn</color>] - Respawn all NPCs on the map. \n[<color=#ffbd33>/npc reload</color>] - Reload plugin.",
+  "NpcCount": "<color=#00ce10>An has appeared on the map</color>",
+  "NpcKill": "<color=#00ce10>Kill all NPC</color> [<color=#ffbd33>OK</color>]",
+  "ReloadPlugin": "<color=#00ce10>Reloaded plugin SpawnNPC</color> [<color=#ffbd33>OK</color>]"
+}

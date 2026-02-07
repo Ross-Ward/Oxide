@@ -1,0 +1,23 @@
+{
+  "NotAllowed": "You do not have permission to use this command",
+  "Enabled": "<color=#8ee700>Enabled</color>",
+  "Disabled": "<color=#ce422b>Disabled</color>",
+  "AutoDoor": "Automatic door closing is now {0}",
+  "AutoDoorDelay": "Automatic door closing delay set to {0}s. (Doors set by 'single' and 'type' are not included)",
+  "AutoDoorDelayAll": "Automatic closing delay of all doors set to {0}s",
+  "DoorNotFound": "You need to look at a door",
+  "DoorNotSupported": "This type of door is not supported",
+  "AutoDoorDelayLimit": "Automatic door closing delay allowed is between {0}s and {1}s",
+  "AutoDoorSingle": "Automatic closing of this <color=#4DFF4D>{0}</color> is {1}",
+  "AutoDoorSingleDelay": "Automatic closing delay of this <color=#4DFF4D>{0}</color> is {1}s",
+  "AutoDoorType": "Automatic closing of <color=#4DFF4D>{0}</color> door is {1}",
+  "AutoDoorTypeDelay": "Automatic closing delay of <color=#4DFF4D>{0}</color> door is {1}s",
+  "SyntaxError": "Syntax error, type '<color=#ce422b>/{0} <help | h></color>' to view help",
+  "AutoDoorSyntax": "<color=#ce422b>/{0} </color> - Enable/Disable automatic door closing",
+  "AutoDoorSyntax1": "<color=#ce422b>/{0} [time (seconds)]</color> - Set automatic closing delay for doors, the allowed time is between {1}s and {2}s. (Doors set by 'single' and 'type' are not included)",
+  "AutoDoorSyntax2": "<color=#ce422b>/{0} <single | s></color> - Enable/Disable automatic closing of the door you are looking at",
+  "AutoDoorSyntax3": "<color=#ce422b>/{0} <single | s> [time (seconds)]</color> - Set automatic closing delay for the door you are looking at, the allowed time is between {1}s and {2}s",
+  "AutoDoorSyntax4": "<color=#ce422b>/{0} <type | t></color> - Enable/disable automatic door closing for the type of door you are looking at. ('type' is just a word, not the type of door)",
+  "AutoDoorSyntax5": "<color=#ce422b>/{0} <type | t> [time (seconds)]</color> - Set automatic closing delay for the type of door you are looking at, the allowed time is between {1}s and {2}s. ('type' is just a word, not the type of door)",
+  "AutoDoorSyntax6": "<color=#ce422b>/{0} <all | a> [time (seconds)]</color> - Set automatic closing delay for all doors, the allowed time is between {1}s and {2}s."
+}
