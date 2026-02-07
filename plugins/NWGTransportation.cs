@@ -138,10 +138,9 @@ namespace Oxide.Plugins
                     }
                     else
                     {
-                         Puts("[NWG Transportation] CRITICAL: Could not find Outpost monument! Please set manually with /setwarp outpost.");
+                        Puts("[NWG Transportation] CRITICAL: Could not find Outpost monument! Please set manually with /setwarp outpost.");
                     }
                 }
-            }
         }
 
         private void Unload()
