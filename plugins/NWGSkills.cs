@@ -21,6 +21,8 @@ namespace Oxide.Plugins
             public float WoodXP = 0;
             public float StoneXP = 0;
             public float OreXP = 0;
+            public float CombatXP = 0;
+            public float SurvivalXP = 0;
             public int SkillPoints = 0;
             public HashSet<string> UnlockedSkills = new HashSet<string>();
         }
@@ -48,24 +50,57 @@ namespace Oxide.Plugins
         }
         #endregion
 
-        #region Gathering Hook
+        #region Gathering & Combat Hooks
         private void OnDispenserGather(ResourceDispenser dispenser, BaseEntity entity, Item item)
         {
             var player = entity as BasePlayer;
             if (player == null) return;
 
             string category = dispenser.gatherType.ToString();
-            float xpGain = item.amount * 0.1f;
+            float xpGain = item.amount * 0.15f; // Buffed XP slightly
 
             var data = GetPlayerData(player.userID);
-            if (category == "Tree") data.WoodXP += xpGain;
-            else if (category == "Ore") data.OreXP += xpGain;
-            else if (category == "Stone") data.StoneXP += xpGain;
+            string label = "";
+
+            if (category == "Tree") { data.WoodXP += xpGain; label = "Woodcutting"; }
+            else if (category == "Ore") { data.OreXP += xpGain; label = "Mining"; }
+            else if (category == "Stone") { data.StoneXP += xpGain; label = "Quarrying"; }
             
-            // Level up logic simplified: Every 1000 XP gives 1 Skill Point
-            if (data.WoodXP >= 1000) { data.WoodXP -= 1000; data.SkillPoints++; player.ChatMessage("You gained a Skill Point in Woodcutting!"); }
-            if (data.OreXP >= 1000) { data.OreXP -= 1000; data.SkillPoints++; player.ChatMessage("You gained a Skill Point in Mining!"); }
-            if (data.StoneXP >= 1000) { data.StoneXP -= 1000; data.SkillPoints++; player.ChatMessage("You gained a Skill Point in Quarrying!"); }
+            CheckLeveUp(player, data, label);
+        }
+
+        private void OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
+        {
+            var attacker = info?.Initiator as BasePlayer;
+            if (attacker == null || entity == null) return;
+
+            var data = GetPlayerData(attacker.userID);
+
+            // Combat XP for hitting hostile NPCs or other players
+            if (entity is BaseNpc || entity is BasePlayer && entity != attacker)
+            {
+                float xpGain = info.damageTypes.Total() * 0.5f;
+                data.CombatXP += xpGain;
+                CheckLeveUp(attacker, data, "Combat");
+            }
+            // Survival XP for hitting barrels, crates, etc.
+            else if (entity is LootContainer || (entity.ShortPrefabName.Contains("barrel") || entity.ShortPrefabName.Contains("crate")))
+            {
+                float xpGain = info.damageTypes.Total() * 0.2f;
+                data.SurvivalXP += xpGain;
+                CheckLeveUp(attacker, data, "Survival");
+            }
+        }
+
+        private void CheckLeveUp(BasePlayer player, PlayerData data, string label)
+        {
+            const float XP_PER_POINT = 1000f;
+
+            if (data.WoodXP >= XP_PER_POINT) { data.WoodXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
+            if (data.OreXP >= XP_PER_POINT) { data.OreXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
+            if (data.StoneXP >= XP_PER_POINT) { data.StoneXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
+            if (data.CombatXP >= XP_PER_POINT) { data.CombatXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
+            if (data.SurvivalXP >= XP_PER_POINT) { data.SurvivalXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
         }
 
         private PlayerData GetPlayerData(ulong uid)

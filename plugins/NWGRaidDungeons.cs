@@ -59,8 +59,16 @@ namespace Oxide.Plugins
         #endregion
 
         #region Lifecycle
+        private const string PermAdmin = "nwgraiddungeons.admin";
+        private const string PermPrivate = "nwgraiddungeons.private";
+        private const string PermGroup = "nwgraiddungeons.group";
+
         private void Init()
         {
+            permission.RegisterPermission(PermAdmin, this);
+            permission.RegisterPermission(PermPrivate, this);
+            permission.RegisterPermission(PermGroup, this);
+
             LoadConfigVariables();
             _eventTimer = timer.Every(_config.EventIntervalHours * 3600, () => StartDungeon(DungeonType.Global));
             _waveCheckTimer = timer.Every(5f, CheckDungeonsProgress);
@@ -69,7 +77,7 @@ namespace Oxide.Plugins
         [ChatCommand("dungeon")]
         private void CmdDungeon(BasePlayer player, string command, string[] args)
         {
-            if (player == null || !player.IsAdmin) return;
+            if (player == null) return;
             
             if (args.Length == 0)
             {
@@ -81,15 +89,29 @@ namespace Oxide.Plugins
 
             if (action == "start")
             {
-                string typeStr = args.Length > 1 ? args[1].ToLower() : "global";
-                DungeonType type = DungeonType.Global;
-                if (typeStr == "private") type = DungeonType.Private;
-                else if (typeStr == "group") type = DungeonType.Group;
-                StartDungeon(type, player);
-                player.ChatMessage($"Started {type} dungeon.");
+                if (args.Length < 2) { player.ChatMessage("Usage: /dungeon start <type>"); return; }
+                string typeStr = args[1].ToLower();
+
+                if (typeStr == "global")
+                {
+                    if (!player.IsAdmin && !permission.UserHasPermission(player.UserIDString, PermAdmin)) { player.ChatMessage("No permission."); return; }
+                    StartDungeon(DungeonType.Global);
+                    player.ChatMessage("Started GLOBAL dungeon.");
+                }
+                else if (typeStr == "private")
+                {
+                    if (!player.IsAdmin && !permission.UserHasPermission(player.UserIDString, PermPrivate)) { player.ChatMessage("No permission for Private Dungeon."); return; }
+                    StartDungeon(DungeonType.Private, player);
+                }
+                else if (typeStr == "group")
+                {
+                    if (!player.IsAdmin && !permission.UserHasPermission(player.UserIDString, PermGroup)) { player.ChatMessage("No permission for Group Dungeon."); return; }
+                    StartDungeon(DungeonType.Group, player);
+                }
             }
             else if (action == "stopall")
             {
+                if (!player.IsAdmin && !permission.UserHasPermission(player.UserIDString, PermAdmin)) { player.ChatMessage("No permission."); return; }
                 StopAllDungeons();
                 player.ChatMessage("Stopped all dungeons.");
             }

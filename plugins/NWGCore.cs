@@ -186,6 +186,14 @@ namespace Oxide.Plugins
                     PrintError($"Failed to initialize service {service.GetType().Name}: {ex}");
                 }
             }
+
+            // Ensure admin group has root permission
+            if (!permission.GroupExists("admin")) permission.CreateGroup("admin", "Default Admin Group", 0);
+            if (!permission.GroupHasPermission("admin", "nwgcore.admin"))
+            {
+                permission.GrantGroupPermission("admin", "nwgcore.admin", this);
+                Puts("[NWG Core] Granted 'nwgcore.admin' to 'admin' group.");
+            }
             
             Puts($"[NWG Core] Ready. Tracker monitoring {GetEntityStatusString()}");
         }
@@ -204,8 +212,33 @@ namespace Oxide.Plugins
 
         #region Hooks (Event Wiring)
 
-        // These hooks feed the EntityTrackerService
-        // They are lightweight and only fire when specific entities spawn/die.
+        // Sync native Rust admins to Oxide Groups/Permissions
+        private void OnPlayerConnected(BasePlayer player)
+        {
+            if (player.IsAdmin || player.IsDeveloper)
+            {
+                // Ensure they are in the oxide 'admin' group
+                if (!permission.UserHasGroup(player.UserIDString, "admin"))
+                {
+                    permission.AddUserGroup(player.UserIDString, "admin");
+                    Puts($"[NWG Core] Auto-added native admin {player.displayName} to Oxide 'admin' group.");
+                }
+
+                // Ensure they have the core override permission
+                if (!permission.UserHasPermission(player.UserIDString, "nwgcore.admin"))
+                {
+                    permission.GrantUserPermission(player.UserIDString, "nwgcore.admin", this);
+                    Puts($"[NWG Core] Auto-granted 'nwgcore.admin' to native admin {player.displayName}.");
+                }
+            }
+        
+            // Entity Tracking
+            if (player is BaseEntity baseEntity)
+            {
+                 var tracker = ServiceContainer.Get<EntityTrackerService>();
+                 tracker?.RegisterEntity(baseEntity);
+            }
+        }
 
         private void OnEntitySpawned(BaseNetworkable entity)
         {

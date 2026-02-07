@@ -85,6 +85,21 @@ namespace Oxide.Plugins
             };
             _config.Kits["vip"] = vip;
 
+            var adminPvp = new Kit {
+                Description = "Admin PVP Gear (Staff Only)",
+                Cooldown = 0,
+                Permission = "nwgcore.admin",
+                Items = new List<KitItem> {
+                    new KitItem { ShortName = "rifle.ak", Amount = 1 },
+                    new KitItem { ShortName = "ammo.rifle", Amount = 256 },
+                    new KitItem { ShortName = "attire.heavy.plate.helmet", Amount = 1 },
+                    new KitItem { ShortName = "attire.heavy.plate.jacket", Amount = 1 },
+                    new KitItem { ShortName = "attire.heavy.plate.pants", Amount = 1 },
+                    new KitItem { ShortName = "syringe.medical", Amount = 10 }
+                }
+            };
+            _config.Kits["admin_pvp"] = adminPvp;
+
             SaveConfig();
         }
 
