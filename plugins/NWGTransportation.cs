@@ -106,13 +106,18 @@ namespace Oxide.Plugins
         {
             if (_config == null || _config.Warps == null) return;
 
-            // Auto-detect Outpost if set to placeholder
-            if (_config.Warps.ContainsKey("outpost"))
+            // Auto-detect Outpost logic
+            bool updateNeeded = false;
+            if (!_config.Warps.ContainsKey("outpost"))
             {
-                var wp = _config.Warps["outpost"];
-                if (wp.x == 0 && wp.y == 0 && wp.z == 0)
-                {
-                    Puts("[NWG Transportation] Searching for Outpost...");
+                _config.Warps["outpost"] = new WarpPoint(); // Create if missing
+                updateNeeded = true;
+            }
+
+            var wp = _config.Warps["outpost"];
+            if (wp.x == 0 && wp.y == 0 && wp.z == 0)
+            {
+                Puts("[NWG Transportation] Searching for Outpost...");
                     
                     // Debug all monuments
                     // foreach (var m in TerrainMeta.Path.Monuments) Puts($"Monument: {m.displayPhrase.english} | {m.name}");

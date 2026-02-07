@@ -43,8 +43,8 @@ namespace Oxide.Plugins
                 player.ChatMessage("Admin powers and God mode disabled.");
                 
                 // Auto-disable god/vanish if active
-                player.ConsoleRun("god false");
-                player.ConsoleRun("vanish false");
+                player.SendConsoleCommand("god false");
+                player.SendConsoleCommand("vanish false");
             }
             else
             {
