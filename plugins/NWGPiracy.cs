@@ -45,7 +45,7 @@ namespace Oxide.Plugins
             else SpawnDeepSeaSalvage();
         }
 
-        [ChatCommand("piracy.spawn")]
+        [ChatCommand("spawnpiracy")]
         private void CmdPiracySpawn(BasePlayer player, string cmd, string[] args)
         {
             if (!player.IsAdmin) return;

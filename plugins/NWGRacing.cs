@@ -23,7 +23,7 @@ namespace Oxide.Plugins
 
         private RaceSession _currentRace;
 
-        [ChatCommand("race.start")]
+        [ChatCommand("startrace")]
         private void CmdRaceStart(BasePlayer player, string cmd, string[] args)
         {
             if (!player.IsAdmin) return;

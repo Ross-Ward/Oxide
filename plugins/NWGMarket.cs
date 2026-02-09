@@ -78,6 +78,7 @@ namespace Oxide.Plugins
             
             cmd.AddChatCommand(_config.ShopCommand, this, nameof(CmdShop));
             cmd.AddChatCommand(_config.BalanceCommand, this, nameof(CmdBalance));
+            cmd.AddChatCommand("setbalance", this, nameof(CmdSetBalance));
         }
 
         private void LoadConfigVariables()
@@ -240,6 +241,40 @@ namespace Oxide.Plugins
         {
             var bal = Balance(player.userID);
             SendReply(player, $"Your Balance: {_config.CurrencySymbol}{bal:N2}");
+        }
+
+        private void CmdSetBalance(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            if (args.Length < 2) { SendReply(player, "Usage: /setbalance <player> <amount>"); return; }
+            
+            var target = BasePlayer.Find(args[0]);
+            if (target == null) { SendReply(player, "Player not found."); return; }
+            
+            if (!double.TryParse(args[1], out double amount)) { SendReply(player, "Invalid amount."); return; }
+            if (amount < 0) { SendReply(player, "Amount cannot be negative."); return; }
+
+            _data.Balances[target.userID] = amount;
+            SaveData();
+            SendReply(player, $"Set {target.displayName}'s balance to {_config.CurrencySymbol}{amount:N2}");
+        }
+
+        [ChatCommand("givemoney")]
+        private void CmdGiveMoney(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            if (args.Length < 2) { SendReply(player, "Usage: /givemoney <player> <amount>"); return; }
+
+            var target = BasePlayer.Find(args[0]);
+            if (target == null) { SendReply(player, "Player not found."); return; }
+
+            if (!double.TryParse(args[1], out double amount)) { SendReply(player, "Invalid amount."); return; }
+            if (amount <= 0) { SendReply(player, "Amount must be positive."); return; }
+
+            if (!_data.Balances.ContainsKey(target.userID)) _data.Balances[target.userID] = _config.StartingBalance;
+            _data.Balances[target.userID] += amount;
+            SaveData();
+            SendReply(player, $"Gave {_config.CurrencySymbol}{amount:N2} to {target.displayName}. New Balance: {_config.CurrencySymbol}{_data.Balances[target.userID]:N2}");
         }
 
         private void CmdShop(BasePlayer player, string command, string[] args)

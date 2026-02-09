@@ -16,7 +16,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermUsage, this);
         }
 
-        [ChatCommand("goadminduty")]
+        [ChatCommand("adminduty")]
         private void CmdGoAdminDuty(BasePlayer player, string command, string[] args)
         {
             if (player == null) return;

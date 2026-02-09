@@ -151,6 +151,8 @@ namespace Oxide.Plugins
         {
             Vector3 dungeonPos = _config.DungeonPosition + new Vector3(_activeDungeons.Count * 200, 0, 0); // Offset for "instancing"
             
+            dungeonPos.y = 500f; // Force high altitude
+
             var dungeon = new ActiveDungeon {
                 Type = type,
                 Position = dungeonPos,
@@ -170,15 +172,21 @@ namespace Oxide.Plugins
                 
                 PrintToChat("<color=#FF6B6B>GLOBAL RAID EVENT STARTED!</color> A dungeon has appeared at the Sphere Tank!");
             }
-            else if (initiator != null)
-            {
-                // Teleport initiator to private/group dungeon
-                initiator.Teleport(dungeonPos + new Vector3(0, 5, 0));
-                initiator.ChatMessage($"<color=#5BC0DE>{type.ToString().ToUpper()} DUNGEON STARTED!</color> Welcome to your private challenge.");
-            }
 
             BuildDungeon(dungeon);
             _activeDungeons.Add(dungeon);
+
+            if (initiator != null && type != DungeonType.Global)
+            {
+                // Teleport initiator to private/group dungeon AFTER build
+                timer.Once(1f, () => {
+                    if (initiator != null && initiator.IsConnected)
+                    {
+                        initiator.Teleport(dungeonPos + new Vector3(0, 2, 0));
+                        initiator.ChatMessage($"<color=#5BC0DE>{type.ToString().ToUpper()} DUNGEON STARTED!</color> Welcome to your private challenge.");
+                    }
+                });
+            }
         }
 
         private void BuildDungeon(ActiveDungeon dungeon)
@@ -190,8 +198,17 @@ namespace Oxide.Plugins
                  for (float z = -size; z <= size; z += 4f)
                  {
                      var floor = GameManager.server.CreateEntity("assets/prefabs/building/floor/floor.prefab", dungeon.Position + new Vector3(x, 0, z));
-                     floor.Spawn();
-                     dungeon.Entities.Add(floor);
+                     if (floor != null)
+                     {
+                         var block = floor as BuildingBlock;
+                         if (block != null)
+                         {
+                             block.grounded = true;
+                             block.grade = BuildingGrade.Enum.Metal;
+                         }
+                         floor.Spawn();
+                         dungeon.Entities.Add(floor);
+                     }
                  }
              }
 

@@ -63,7 +63,7 @@ namespace Oxide.Plugins
         #endregion
 
         #region Raid Activation
-        [ChatCommand("raid.start")]
+        [ChatCommand("startraid")]
         private void CmdRaidStart(BasePlayer player)
         {
             var key = player.GetActiveItem();

@@ -103,11 +103,12 @@ namespace Oxide.Plugins
                     "<color=#b7d092>/kit</color> - Claim a starting or reward kit",
                     "<color=#b7d092>/skin</color> - Change item skins (Hold item)",
                     "<color=#b7d092>/balance</color> - Check your wallet",
-                    "<color=#b7d092>/home add <name></color> - Set your current position as a home",
+                    "<color=#b7d092>/sethome <name></color> - Set your current position as a home",
                     "<color=#b7d092>/home <name></color> - Teleport to your home",
                     "<color=#b7d092>/tpr <name></color> - Send a teleport request to a player",
                     "<color=#b7d092>/tpa</color> - Accept a pending teleport request",
-                    "<color=#b7d092>/warp <name></color> - Teleport to a server location (e.g. outpost)"
+                    "<color=#b7d092>/warp <name></color> - Teleport to a server location",
+                    "<color=#b7d092>/setautocode <code></color> - Set your automatic lock code"
                 } 
             });
 
@@ -117,14 +118,19 @@ namespace Oxide.Plugins
                 Title = "Admin Commands", 
                 Lines = new List<string> { 
                     "<color=#FF6B6B>/tools</color> - Open admin tool menu",
-                    "<color=#FF6B6B>nwg.raidevent start</color> - Start the custom dungeon event",
-                    "<color=#FF6B6B>market.deposit <id> <amt></color> - Give money",
-                    "<color=#FF6B6B>market.setbalance <id> <amt></color> - Set money",
+                    "<color=#FF6B6B>/setadminpass <pass></color> - Secure your admin session",
+                    "<color=#FF6B6B>/adminduty</color> - Toggle Admin Duty",
+                    "<color=#FF6B6B>/setbalance <player> <amt></color> - Set player balance",
+                    "<color=#FF6B6B>/givemoney <player> <amt></color> - Give money to player",
+                    "<color=#FF6B6B>/settime <0-24></color> - Set server time",
+                    "<color=#FF6B6B>/setweather <type></color> - Set server weather",
+                    "<color=#FF6B6B>/dungeon start global</color> - Start Global Dungeon",
+                    "<color=#FF6B6B>/startraid</color> - Start Base Raid Event",
+                    "<color=#FF6B6B>/spawnpiracy</color> - Spawn Pirate Tugboat",
+                    "<color=#FF6B6B>/startrace</color> - Start Racing Event",
                     "<color=#FF6B6B>/tp <name></color> - Teleport to player",
-                    "<color=#FF6B6B>/bring <name></color> - Bring player to self",
                     "<color=#FF6B6B>/god</color> - Toggle god mode",
-                    "<color=#FF6B6B>/vanish</color> - Toggle invisibility",
-                    "<color=#FF6B6B>/radar</color> - Toggle ESP"
+                    "<color=#FF6B6B>/vanish</color> - Toggle invisibility"
                 } 
             });
 

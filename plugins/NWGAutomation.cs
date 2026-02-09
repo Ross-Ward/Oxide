@@ -274,12 +274,12 @@ namespace Oxide.Plugins
         #endregion
 
         #region Commands
-        [ChatCommand("autocode")]
+        [ChatCommand("setautocode")]
         private void CmdAutoCode(BasePlayer player, string command, string[] args)
         {
             if (args.Length == 0)
             {
-                player.ChatMessage("Usage: /autocode <code>");
+                player.ChatMessage("Usage: /setautocode <code>");
                 return;
             }
             
