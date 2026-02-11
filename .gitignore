@@ -6,6 +6,6 @@ data/
 *.bak
 .DS_Store
 Thumbs.db
-
+config/
 # Sensitive Configs (Optional: keep if you want versioned, ignore if they contain secrets)
 # config/*.json
