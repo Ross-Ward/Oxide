@@ -67,6 +67,7 @@ namespace Oxide.Plugins
         private void CmdRaidStart(BasePlayer player)
         {
             var key = player.GetActiveItem();
+            //TODO: Make sure key object check is not wokring for objects with keycard_blue, keycard_green, etc
             if (key == null || key.info.shortname != "keycard_red" || key.name != "Base Raid Key")
             {
                 player.ChatMessage("You must be holding a 'Base Raid Key' to start a raid.");

@@ -183,13 +183,13 @@ namespace Oxide.Plugins
 
             if (!_securityData.AdminHashes.ContainsKey(player.userID))
             {
-                player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true); 
+               
                 DisplaySetupUI(player);
                 SendReply(player, "<color=red>SECURITY WARNING:</color> You are an Admin but have no password set.\nUse <color=orange>/setadminpass <password></color> to set it.\n<color=red>YOU WILL BE KICKED AFTER SETUP.</color>");
             }
             else
             {
-                player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
+              
                 DisplayLoginUI(player);
                 SendReply(player, "<color=red>SECURITY ALERT:</color> Admin Login Required.\nUse <color=orange>/login <password></color>");
             }
@@ -593,7 +593,7 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, panelName);
             CuiHelper.DestroyUi(player, "NWG_Sec_Login");
 
-            elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.98" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", panelName);
+            elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.98" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
             elements.Add(new CuiLabel { Text = { Text = "SECURITY SETUP REQUIRED", FontSize = 30, Align = TextAnchor.MiddleCenter, Color = "1 0.5 0 1" }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
             elements.Add(new CuiLabel { Text = { Text = "You are an Admin without a password.\nPlease set one now: /setadminpass <password>", FontSize = 18, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
             CuiHelper.AddUi(player, elements);
@@ -605,7 +605,7 @@ namespace Oxide.Plugins
             string panelName = "NWG_Sec_Login";
             CuiHelper.DestroyUi(player, panelName);
 
-            elements.Add(new CuiPanel { Image = { Color = "0 0 0 1" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", panelName);
+            elements.Add(new CuiPanel { Image = { Color = "0 0 0 1" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
              elements.Add(new CuiLabel { Text = { Text = "ADMIN ACCESS LOCKED", FontSize = 35, Align = TextAnchor.MiddleCenter, Color = "1 0 0 1" }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
             elements.Add(new CuiLabel { Text = { Text = "Login Required: /login <password>", FontSize = 18, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
             CuiHelper.AddUi(player, elements);
