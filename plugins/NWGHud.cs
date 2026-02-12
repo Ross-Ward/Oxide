@@ -8,30 +8,33 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG HUD", "NWG Team", "3.0.0")]
-    [Description("Optimized HUD monitoring Grid, Health, Balance and active Threats using NWG_Core.")]
+    [Info("NWG HUD", "NWG Team", "4.0.0")]
+    [Description("Clean top HUD bar below compass showing player identity, clan, grid, bearing, time, and balance.")]
     public class NWGHud : RustPlugin
     {
         #region References
         [PluginReference] private Plugin NWGCore;
+        [PluginReference] private Plugin NWGClans;
         [PluginReference] private Plugin Economics;
         #endregion
 
         #region Configuration
         private class PluginConfig
         {
-            public float UpdateInterval = 1.0f; // Slower interval is fine for HUD, 0.5 was overkill
+            public float UpdateInterval = 1.0f;
+            public bool ShowPlayerName = true;
+            public bool ShowClan = true;
             public bool ShowGrid = true;
-            public bool ShowHealth = true;
+            public bool ShowBearing = true;
             public bool ShowTime = true;
             public bool ShowBalance = true;
-            public bool ShowThreats = true;
+            public bool ShowOnlinePlayers = true;
 
-            public string PanelColor = "0 0 0 0.85";
-            public string HeaderColor = "#FFA500"; // Orange
-            public string TextColor = "#b7d092";   // Light Green
-            public string WarnColor = "#FF6B6B";   // Red
-            public string SuccessColor = "#51CF66";// Green
+            public string PanelBgColor   = "0 0 0 0.45";
+            public string AccentColor    = "#b7d092";   // Light sage green
+            public string ClanColor      = "#FFA500";   // Orange for clan tag
+            public string TextColor      = "#DDDDDD";   // Soft white
+            public string SeparatorColor = "#555555";   // Dim separator
         }
         private PluginConfig _config;
         #endregion
@@ -66,7 +69,7 @@ namespace Oxide.Plugins
 
         protected override void LoadDefaultConfig()
         {
-            Puts("Creating new configuration file for NWG HUD");
+            Puts("Creating new configuration file for NWG HUD v4");
             _config = new PluginConfig();
             SaveConfig();
         }
@@ -77,8 +80,6 @@ namespace Oxide.Plugins
             {
                 OnPlayerConnected(player);
             }
-            
-            // Replaces OnFrame polling with a clean Timer
             _hudTimer = timer.Every(_config.UpdateInterval, UpdateAllHuds);
         }
 
@@ -106,18 +107,12 @@ namespace Oxide.Plugins
         }
         #endregion
 
-        #region Logic
+        #region HUD Drawing
         private void UpdateAllHuds()
         {
             foreach (var player in BasePlayer.activePlayerList)
             {
                 if (!_activePlayers.Contains(player.userID)) continue;
-                if (IsMenuOpen(player)) continue; // Don't redraw if menu is open
-
-                // We can use CuiHelper.DestroyUi and AddUi, but for smooth updates 
-                // typically we might want to update specific text components.
-                // For simplicity in this v1 rewrite, we redraw. 
-                // Optimization: In v2, use CUI names to update text only.
                 DrawHud(player);
             }
         }
@@ -125,75 +120,142 @@ namespace Oxide.Plugins
         private void DrawHud(BasePlayer player)
         {
             CuiHelper.DestroyUi(player, LayerName);
-            
             var container = new CuiElementContainer();
-            // Root panel (Transparent)
+
+            // ── Root panel: sits just below the compass ──
+            // Compass occupies roughly 0.35-0.65 horizontally, top ~0.96-1.0
+            // We position our bar at the same width, just beneath it
             container.Add(new CuiPanel
             {
-                Image = { Color = "0 0 0 0" },
-                RectTransform = { AnchorMin = "0.3 0.97", AnchorMax = "0.7 1.0" },
+                Image = { Color = _config.PanelBgColor },
+                RectTransform = { AnchorMin = "0.335 0.945", AnchorMax = "0.665 0.97" },
                 CursorEnabled = false
             }, "Overlay", LayerName);
 
-            string content = BuildContent(player);
+            // ── Build the single-line content ──
+            string line = BuildLine(player);
 
-            // Centered Label with shadow-like effect (using multiple labels or just color)
             container.Add(new CuiLabel
             {
-                Text = { 
-                    Text = content, 
-                    Font = "robotocondensed-bold.ttf", 
-                    FontSize = 10, 
-                    Align = TextAnchor.MiddleCenter, 
-                    Color = "1 1 1 0.6" 
+                Text = {
+                    Text = line,
+                    Font = "robotocondensed-regular.ttf",
+                    FontSize = 10,
+                    Align = TextAnchor.MiddleCenter,
+                    Color = "1 1 1 0.85"
                 },
-                RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
+                RectTransform = { AnchorMin = "0.02 0", AnchorMax = "0.98 1" }
             }, LayerName);
 
             CuiHelper.AddUi(player, container);
         }
 
-        private string BuildContent(BasePlayer player)
+        private string BuildLine(BasePlayer player)
         {
+            var sep = $" <color={_config.SeparatorColor}>│</color> ";
             var parts = new List<string>();
-            
-            if (_config.ShowGrid)
-                parts.Add($"<color=#b7d092>GRID:</color> {GetGrid(player.transform.position)}");
 
+            // ── Player identity: Name + Clan ──
+            if (_config.ShowPlayerName || _config.ShowClan)
+            {
+                string identity = "";
+                string clanTag = GetClanTag(player.userID);
+
+                if (_config.ShowClan && !string.IsNullOrEmpty(clanTag))
+                {
+                    identity += $"<color={_config.ClanColor}>[{clanTag}]</color> ";
+                }
+                if (_config.ShowPlayerName)
+                {
+                    identity += $"<color={_config.TextColor}>{player.displayName}</color>";
+                }
+                parts.Add(identity.Trim());
+            }
+
+            // ── Grid position ──
+            if (_config.ShowGrid)
+            {
+                parts.Add($"<color={_config.AccentColor}>GRID</color> {GetGrid(player.transform.position)}");
+            }
+
+            // ── Compass bearing ──
+            if (_config.ShowBearing)
+            {
+                float yaw = player.eyes.rotation.eulerAngles.y;
+                parts.Add($"<color={_config.AccentColor}>{GetCardinal(yaw)}</color> {yaw:0}°");
+            }
+
+            // ── In-game time ──
             if (_config.ShowTime && TOD_Sky.Instance != null)
-                parts.Add($"<color=#b7d092>TIME:</color> {TOD_Sky.Instance.Cycle.Hour:00}:{((int)((TOD_Sky.Instance.Cycle.Hour % 1) * 60)):00}");
-            
+            {
+                int hours = (int)TOD_Sky.Instance.Cycle.Hour;
+                int minutes = (int)((TOD_Sky.Instance.Cycle.Hour % 1) * 60);
+                parts.Add($"<color={_config.AccentColor}>{hours:00}:{minutes:00}</color>");
+            }
+
+            // ── Balance ──
             if (_config.ShowBalance && Economics != null && Economics.IsLoaded)
             {
                 var bal = Economics.Call("Balance", player.UserIDString);
-                parts.Add($"<color=#b7d092>$:</color> {bal:N0}");
+                if (bal != null)
+                    parts.Add($"<color={_config.AccentColor}>$</color>{bal:N0}");
             }
 
-            return string.Join("  |  ", parts); 
+            // ── Online players ──
+            if (_config.ShowOnlinePlayers)
+            {
+                parts.Add($"<color={_config.AccentColor}>{BasePlayer.activePlayerList.Count}</color> online");
+            }
+
+            return string.Join(sep, parts);
+        }
+        #endregion
+
+        #region Helpers
+        private string GetClanTag(ulong playerId)
+        {
+            if (NWGClans == null || !NWGClans.IsLoaded) return null;
+            return NWGClans.Call<string>("GetClanTag", playerId);
         }
 
-        // Wrapper to safely call Core
+        private string GetGrid(Vector3 pos)
+        {
+            float worldSize = ConVar.Server.worldsize;
+            float offset = worldSize / 2f;
+            const float cellSize = 150f;
+            int maxCell = (int)(worldSize / cellSize) - 1;
+            int x = Mathf.Clamp(Mathf.FloorToInt((pos.x + offset) / cellSize), 0, maxCell);
+            int z = Mathf.Clamp(Mathf.FloorToInt((pos.z + offset) / cellSize), 0, maxCell);
+            // Convert x to letter(s): 0=A, 25=Z, 26=AA, etc.
+            string col = "";
+            int cx = x;
+            do
+            {
+                col = (char)('A' + cx % 26) + col;
+                cx = cx / 26 - 1;
+            } while (cx >= 0);
+            return $"{col}{z}";
+        }
+
+        private string GetCardinal(float yaw)
+        {
+            // Normalize to 0-360
+            yaw = (yaw % 360 + 360) % 360;
+            if (yaw >= 337.5f || yaw < 22.5f)  return "N";
+            if (yaw < 67.5f)  return "NE";
+            if (yaw < 112.5f) return "E";
+            if (yaw < 157.5f) return "SE";
+            if (yaw < 202.5f) return "S";
+            if (yaw < 247.5f) return "SW";
+            if (yaw < 292.5f) return "W";
+            return "NW";
+        }
+
         private int GetEntityCount(string type)
         {
             if (NWGCore == null || !NWGCore.IsLoaded) return 0;
             object result = NWGCore.Call("GetEntityCount", type);
             return result is int count ? count : 0;
-        }
-
-        private string GetGrid(Vector3 pos)
-        {
-             const float cellSize = 150f;
-             const float offset = 2000f; // 4000/2
-             int x = Mathf.Clamp(Mathf.FloorToInt((pos.x + offset) / cellSize), 0, 26);
-             int z = Mathf.Clamp(Mathf.FloorToInt((pos.z + offset) / cellSize), 0, 26);
-             return $"{(char)('A' + x)}{z}";
-        }
-
-        private bool IsMenuOpen(BasePlayer player)
-        {
-            // Simple check for common CUI layers that obscure vision
-            // This prevents drawing over looting/crafting
-            return false; // To be expanded with specific UI checks if needed
         }
         #endregion
     }

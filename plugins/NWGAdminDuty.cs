@@ -21,9 +21,7 @@ namespace Oxide.Plugins
         {
             if (player == null) return;
 
-            // Allow hardcoded owners to bypass permission check initially
-            bool isOwner = (player.UserIDString == "76561198049647064" || player.UserIDString == "76561198116726532");
-            if (!isOwner && !permission.UserHasPermission(player.UserIDString, PermUsage))
+            if (!permission.UserHasPermission(player.UserIDString, PermUsage))
             {
                 player.ChatMessage("You do not have permission to use this command.");
                 return;

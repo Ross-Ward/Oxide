@@ -109,6 +109,9 @@ namespace Oxide.Plugins
         {
             if (string.IsNullOrEmpty(message)) return null;
 
+            // Ignore commands early — let the game/other plugins handle them
+            if (message.StartsWith("/") || message.StartsWith("!")) return null;
+
             // Mute Check
             if (player.Object is BasePlayer bp)
             {
@@ -123,9 +126,6 @@ namespace Oxide.Plugins
 
             // Format Logic
             string finalMessage = FormatMessage(group, player, message);
-
-            // Ignore commands
-            if (message.StartsWith("/") || message.StartsWith("!")) return null;
 
             // Broadcast to all
             // We return true to suppress default chat, and send our own
