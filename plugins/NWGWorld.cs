@@ -68,15 +68,6 @@ namespace Oxide.Plugins
         {
             _data = Interface.Oxide.DataFileSystem.ReadObject<StoredData>("NWG_World_Data") ?? new StoredData();
             
-            // Explicitly register console commands for UI buttons (Using Underscores)
-            cmd.AddConsoleCommand("vq_inspect", this, "CC_VQInspect");
-            cmd.AddConsoleCommand("vq_addfuel", this, "CC_VQAddFuel");
-            cmd.AddConsoleCommand("vq_claimone", this, "CC_VQClaimOne");
-            cmd.AddConsoleCommand("vq_filter", this, "CC_VQFilter");
-            cmd.AddConsoleCommand("vq_close", this, "CC_VQClose");
-            cmd.AddConsoleCommand("vq_deploy", this, "CC_VQDeploy");
-            cmd.AddConsoleCommand("vq_claim", this, "CC_VQClaim");
-
             // Migration: Assign IDs to old quarries and log it
             int migrated = 0;
             foreach (var kvp in _data.Quarries)
@@ -91,7 +82,6 @@ namespace Oxide.Plugins
                 }
             }
             if (migrated > 0) Puts($"[VQ] Migrated {migrated} quarries to the new ID system.");
-            Puts("[VQ] Commands Registered: vq_inspect, vq_addfuel, vq_claimone, vq_filter, vq_close, vq_deploy, vq_claim");
         }
 
         protected override void LoadConfig()
@@ -232,7 +222,7 @@ namespace Oxide.Plugins
                 string f = filters[i];
                 float y = 0.55f - (i * 0.06f);
                 elements.Add(new CuiButton {
-                    Button = { Command = $"vq_filter {f}", Color = filter == f ? "0.35 0.6 1 0.4" : "0.2 0.2 0.2 0.6" },
+                    Button = { Command = $"nwg_vq_filter {f}", Color = filter == f ? "0.35 0.6 1 0.4" : "0.2 0.2 0.2 0.6" },
                     RectTransform = { AnchorMin = $"0.1 {y}", AnchorMax = $"0.9 {y+0.05f}" },
                     Text = { Text = f.ToUpper(), FontSize = 9, Align = TextAnchor.MiddleCenter }
                 }, left);
@@ -242,14 +232,14 @@ namespace Oxide.Plugins
             var held = player.GetActiveItem();
             bool canDeploy = held != null && _config.QuarryYields.ContainsKey(held.info.shortname);
             elements.Add(new CuiButton {
-                Button = { Command = "vq_deploy", Color = canDeploy ? "0.3 0.5 0.2 0.8" : "0.2 0.2 0.2 0.5" },
+                Button = { Command = "nwg_vq_deploy", Color = canDeploy ? "0.3 0.5 0.2 0.8" : "0.2 0.2 0.2 0.5" },
                 RectTransform = { AnchorMin = "0.1 0.8", AnchorMax = "0.9 0.9" },
                 Text = { Text = canDeploy ? $"DEPLOY HELD\n({held.info.displayName.english})" : "HOLD QUARRY\nTO DEPLOY", FontSize = 10, Align = TextAnchor.MiddleCenter }
             }, left);
 
             // Claim Button
             elements.Add(new CuiButton {
-                Button = { Command = $"vq_claim {filter}", Color = "0.2 0.4 0.6 0.8" },
+                Button = { Command = $"nwg_vq_claim {filter}", Color = "0.2 0.4 0.6 0.8" },
                 RectTransform = { AnchorMin = "0.1 0.68", AnchorMax = "0.9 0.78" },
                 Text = { Text = filter == "all" ? "CLAIM ALL" : $"CLAIM {filter.ToUpper()}", FontSize = 11, Align = TextAnchor.MiddleCenter }
             }, left);
@@ -277,7 +267,7 @@ namespace Oxide.Plugins
                     string fuelColor = q.Fuel > 0 ? "0.4 0.8 0.2 1" : "0.8 0.2 0.2 1";
                     elements.Add(new CuiLabel { Text = { Text = $"FUEL: {q.Fuel}", FontSize = 10, Align = TextAnchor.MiddleLeft, Color = fuelColor }, RectTransform = { AnchorMin = "0.25 0", AnchorMax = "0.4 1" } }, row);
 
-                    string cmd = string.IsNullOrEmpty(q.Id) ? "" : $"vq_inspect {q.Id}";
+                    string cmd = string.IsNullOrEmpty(q.Id) ? "" : $"nwg_vq_inspect {q.Id}";
                     elements.Add(new CuiButton {
                         Button = { Command = cmd, Color = "0.35 0.6 1 0.4" },
                         RectTransform = { AnchorMin = "0.85 0.1", AnchorMax = "0.98 0.9" },
@@ -292,12 +282,12 @@ namespace Oxide.Plugins
 
             // Close
             elements.Add(new CuiButton {
-                Button = { Command = "vq_close", Color = "0.7 0.2 0.2 0.8" },
+                Button = { Command = "nwg_vq_close", Color = "0.7 0.2 0.2 0.8" },
                 RectTransform = { AnchorMin = "0.96 0.93", AnchorMax = "0.99 0.99" },
                 Text = { Text = "✕", FontSize = 14, Align = TextAnchor.MiddleCenter }
             }, root);
 
-            CuiHelper.AddUi(player, elements.ToJson());
+            CuiHelper.AddUi(player, elements);
         }
 
         private void ShowQuarryDetails(BasePlayer player, string id)
@@ -328,76 +318,78 @@ namespace Oxide.Plugins
 
             // Add Diesel Button
             elements.Add(new CuiButton {
-                Button = { Command = $"vq_addfuel {q.Id}", Color = "0.3 0.5 0.2 0.8" },
+                Button = { Command = $"nwg_vq_addfuel {q.Id}", Color = "0.3 0.5 0.2 0.8" },
                 RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.48 0.15" },
                 Text = { Text = "DEPLOY 1x DIESEL", FontSize = 10, Align = TextAnchor.MiddleCenter }
             }, root);
 
             // Claim Specific Button
             elements.Add(new CuiButton {
-                Button = { Command = $"vq_claimone {q.Id}", Color = "0.2 0.4 0.6 0.8" },
+                Button = { Command = $"nwg_vq_claimone {q.Id}", Color = "0.2 0.4 0.6 0.8" },
                 RectTransform = { AnchorMin = "0.52 0.05", AnchorMax = "0.95 0.15" },
                 Text = { Text = "CLAIM BUFFER", FontSize = 10, Align = TextAnchor.MiddleCenter }
             }, root);
 
             elements.Add(new CuiButton {
-                Button = { Command = "vq_filter all", Color = "0.4 0.4 0.4 0.8" },
+                Button = { Command = "nwg_vq_filter all", Color = "0.4 0.4 0.4 0.8" },
                 RectTransform = { AnchorMin = "0.9 0.92", AnchorMax = "0.98 0.98" },
                 Text = { Text = "BACK", FontSize = 9, Align = TextAnchor.MiddleCenter }
             }, root);
 
             // Close
             elements.Add(new CuiButton {
-                Button = { Command = "vq_close", Color = "0.7 0.2 0.2 0.8" },
+                Button = { Command = "nwg_vq_close", Color = "0.7 0.2 0.2 0.8" },
                 RectTransform = { AnchorMin = "0.9 0.85", AnchorMax = "0.98 0.98" },
                 Text = { Text = "✕", FontSize = 12, Align = TextAnchor.MiddleCenter }
             }, root);
 
-            CuiHelper.AddUi(player, elements.ToJson());
+            CuiHelper.AddUi(player, elements);
         }
 
+        [ConsoleCommand("nwg_vq_inspect")]
         public void CC_VQInspect(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null) return;
             string id = arg.GetString(0);
-            Puts($"[VQ Debug] CC_VQInspect: Player {p.displayName} requested ID {id}");
+            Puts($"[VQ Debug] CC_VQInspect: ID {id}");
             ShowQuarryDetails(p, id);
         }
 
+        [ConsoleCommand("nwg_vq_addfuel")]
         public void CC_VQAddFuel(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null) return;
             string id = arg.GetString(0);
-            Puts($"[VQ Debug] CC_VQAddFuel: Player {p.displayName} for machine ID {id}");
+            Puts($"[VQ Debug] CC_VQAddFuel: ID {id}");
             if (!_data.Quarries.TryGetValue(p.userID, out var list)) return;
             var q = list.FirstOrDefault(x => x.Id == id);
             if (q == null) return;
 
-            // Get Diesel ID dynamically
             var dieselDef = ItemManager.FindItemDefinition("diesel_fuel");
-            if (dieselDef == null) { Puts("[VQ Error] Could NOT find diesel_fuel item definition!"); return; }
+            if (dieselDef == null) return;
 
             var diesel = p.inventory.FindItemByItemID(dieselDef.itemid);
             if (diesel == null)
             {
-                p.ChatMessage("No Diesel Fuel found in your inventory!");
+                p.ChatMessage("No Diesel Fuel found!");
                 return;
             }
 
             diesel.UseItem(1);
             q.Fuel += _config.FuelPerDiesel;
-            p.ChatMessage($"Added Diesel! Machine now has {q.Fuel} operating units.");
+            p.ChatMessage($"Added Diesel! Units: {q.Fuel}");
             ShowQuarryDetails(p, id);
         }
 
+        [ConsoleCommand("nwg_vq_claimone")]
         public void CC_VQClaimOne(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null) return;
             string id = arg.GetString(0);
-            Puts($"[VQ Debug] CC_VQClaimOne: Player {p.displayName} for machine ID {id}");
+            Puts($"[VQ Debug] CC_VQClaimOne: ID {id}");
             if (!_data.Quarries.TryGetValue(p.userID, out var list)) return;
             var q = list.FirstOrDefault(x => x.Id == id);
             if (q == null) return;
@@ -411,7 +403,6 @@ namespace Oxide.Plugins
                     q.Buffer[b.Key] = 0;
                 }
             }
-            p.ChatMessage("Claimed resources from machine!");
             ShowQuarryDetails(p, id);
         }
 
@@ -421,26 +412,29 @@ namespace Oxide.Plugins
             return name.Replace(".ore", "").Replace("metal.fragments", "Metal").Replace("high.quality.metal", "HQM").Replace("crude.oil", "Oil").Replace("lowgradefuel", "Fuel").Replace(".", " ").ToUpper();
         }
 
+        [ConsoleCommand("nwg_vq_filter")]
         public void CC_VQFilter(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             string f = arg.GetString(0, "all");
-            Puts($"[VQ Debug] CC_VQFilter: Plate {p?.displayName} set to {f}");
+            Puts($"[VQ Debug] CC_VQFilter: {f}");
             ShowQuarryUI(p, f);
         }
 
+        [ConsoleCommand("nwg_vq_close")]
         public void CC_VQClose(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
-            Puts($"[VQ Debug] CC_VQClose: Player {p?.displayName} closed UI");
+            Puts($"[VQ Debug] CC_VQClose");
             CuiHelper.DestroyUi(p, "NWG_QuarryUI");
         }
 
+        [ConsoleCommand("nwg_vq_deploy")]
         public void CC_VQDeploy(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null) return;
-            Puts($"[VQ Debug] CC_VQDeploy: Player {p.displayName} attempting deployment");
+            Puts($"[VQ Debug] CC_VQDeploy");
             var held = p.GetActiveItem();
             if (held != null && _config.QuarryYields.ContainsKey(held.info.shortname))
             {
@@ -457,12 +451,13 @@ namespace Oxide.Plugins
             }
         }
 
+        [ConsoleCommand("nwg_vq_claim")]
         public void CC_VQClaim(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null || !_data.Quarries.TryGetValue(p.userID, out var list)) return;
             string filter = arg.GetString(0, "all");
-            Puts($"[VQ Debug] CC_VQClaim: Player {p.displayName} claiming resources (Filter: {filter})");
+            Puts($"[VQ Debug] CC_VQClaim: {filter}");
             
             foreach (var q in list.Where(x => filter == "all" || x.Type.Contains(filter)))
             {
@@ -476,7 +471,6 @@ namespace Oxide.Plugins
                     }
                 }
             }
-            p.ChatMessage($"Claimed resources from {filter.ToUpper()}!");
             ShowQuarryUI(p, filter);
         }
         #endregion
