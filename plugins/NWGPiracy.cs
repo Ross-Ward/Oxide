@@ -31,9 +31,14 @@ namespace Oxide.Plugins
 
         private void CleanupPirates()
         {
-            foreach (var ent in _activePirateEntities)
+            foreach (var ent in _activePirateEntities.ToList())
             {
-                if (ent != null && !ent.IsDestroyed) ent.Kill();
+                if (ent == null || ent.IsDestroyed) continue;
+                
+                // Unparent to ensure safe destruction of children vs parents
+                if (ent.GetParentEntity() != null) ent.SetParent(null);
+                
+                ent.Kill();
             }
             _activePirateEntities.Clear();
         }

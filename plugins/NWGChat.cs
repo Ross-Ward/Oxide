@@ -112,11 +112,14 @@ namespace Oxide.Plugins
             // Ignore commands early — let the game/other plugins handle them
             if (message.StartsWith("/") || message.StartsWith("!")) return null;
 
-            // Mute Check
-            if (player.Object is BasePlayer bp)
+            // Mute Check logic removed temporarily due to API incompatibility
+            /*
+            if (player.IsMuted)
             {
-               // TODO: Fix VoiceMuted check
+                player.Message("<color=red>You are muted and cannot chat.</color>");
+                return true;
             }
+            */
 
             // Update Cache if needed (rare)
             ulong uid = ulong.Parse(player.Id);

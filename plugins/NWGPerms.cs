@@ -480,12 +480,12 @@ namespace Oxide.Plugins
 
         #region Console Commands
         [ConsoleCommand("nwgp.close")]
-        void CCClose(ConsoleSystem.Arg a) { if (a.Player() != null) CloseUI(a.Player(), true); }
+        void CCClose(ConsoleSystem.Arg a) { var p = a.Player(); if (p != null) CloseUI(p, true); }
 
         [ConsoleCommand("nwgp.toggle")]
         void CCToggle(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 2) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 2) return;
             bool group = !Convert.ToBoolean(a.Args[0]); int page = Convert.ToInt32(a.Args[1]);
             var s = GetSession(p);
             if (group) s.GroupPage = page; else s.PlayerPage = page;
@@ -495,7 +495,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.select")]
         void CCSelect(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 2) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 2) return;
             var s = GetSession(p);
             CloseUI(p, false);
             if (a.Args[0] == "player") { s.Subject = FindPlayerById(Convert.ToUInt64(a.Args[1])); CmdPerms(p, null, new[] { "player", a.Args[1] }); }
@@ -505,7 +505,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.nav")]
         void CCNav(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 2) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 2) return;
             var s = GetSession(p); s.PluginPage = Convert.ToInt32(a.Args[1]);
             CloseUI(p, false);
             if (a.Args[0] == "true")
@@ -523,7 +523,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.permslist")]
         void CCPermsList(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 6) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 6) return;
             var s = GetSession(p);
             int plugNum = Convert.ToInt32(a.Args[0]); string action = a.Args[1]; string perm = a.Args[2];
             string group = a.Args[3]; string allFlag = a.Args[4]; int page = Convert.ToInt32(a.Args[5]);
@@ -580,7 +580,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.groups")]
         void CCGroups(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 1) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 1) return;
             var s = GetSession(p); s.GroupPage = Convert.ToInt32(a.Args[0]);
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             CloseUI(p, false); DrawGroupsForPlayerUI(p, Strip(s.Subject.displayName), s.GroupPage);
@@ -589,7 +589,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.playersin")]
         void CCPlayersIn(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 1) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 1) return;
             var s = GetSession(p); s.PlayerPage = Convert.ToInt32(a.Args[0]);
             if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
             CloseUI(p, false); DrawPlayersInGroupUI(p, s.SubjectGroup, s.PlayerPage);
@@ -598,7 +598,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.groupmod")]
         void CCGroupMod(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 3) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 3) return;
             var s = GetSession(p); string g = AddSpaces(a.Args[1]); int page = Convert.ToInt32(a.Args[2]);
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             if (a.Args[0] == "add") { permission.AddUserGroup(s.Subject.UserIDString, g); ShowMsg(p, $"Added to {g}"); }
@@ -609,7 +609,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.revokeall")]
         void CCRevokeAll(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p)) return;
             var s = GetSession(p);
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             foreach (var pm in permission.GetUserPermissions(s.Subject.UserIDString))
@@ -620,7 +620,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.removeallgroups")]
         void CCRemoveAllGroups(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p)) return;
             var s = GetSession(p); int page = a.Args?.Length > 0 ? Convert.ToInt32(a.Args[0]) : 1;
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             int count = 0;
@@ -633,7 +633,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.emptygroup")]
         void CCEmptyGroup(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p)) return;
             var s = GetSession(p);
             if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
             foreach (var u in permission.GetUsersInGroup(s.SubjectGroup))
@@ -647,7 +647,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.inherited")]
         void CCInherited(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 5) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 5) return;
             var s = GetSession(p);
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             s.InheritedCheck = a.Args[4] == s.InheritedCheck ? "" : a.Args[4];
@@ -664,7 +664,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.data")]
         void CCData(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 1) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 1) return;
             int cmd = Convert.ToInt32(a.Args[0]);
             switch (cmd)
             {

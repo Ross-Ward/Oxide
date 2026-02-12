@@ -115,12 +115,12 @@ namespace Oxide.Plugins
             Refund(player, target);
             
             // Kill the entity
-            if (target is BaseCombatEntity combatEnt)
-                combatEnt.Kill(BaseNetworkable.DestroyMode.Gib);
-            else
+            NextTick(() =>
+            {
+                if (target == null || target.IsDestroyed) return;
                 target.Kill(BaseNetworkable.DestroyMode.Gib);
-            
-            player.ChatMessage($"<color=#aaffaa>Removed:</color> {entityName}");
+                player.ChatMessage($"<color=#aaffaa>Removed:</color> {entityName}");
+            });
         }
 
         private bool CanRemove(BasePlayer player, BaseEntity target)

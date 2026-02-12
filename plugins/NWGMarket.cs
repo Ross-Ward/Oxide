@@ -10,8 +10,8 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWGMarket", "NWG Team", "3.0.0")]
-    [Description("In-game Shop and Economy for NWG.")]
+    [Info("NWGMarket", "NWG Team", "4.0.0")]
+    [Description("In-game Shop and Economy for NWG with ImageLibrary integration.")]
     public class NWGMarket : RustPlugin
     {
         #region References
@@ -33,20 +33,18 @@ namespace Oxide.Plugins
         private class ShopCategory
         {
             public string Name;
-            public string IconUrl; // Optional
             public List<ShopItem> Items = new List<ShopItem>();
         }
 
         private class ShopItem
         {
             public string ShortName;
-            public string DisplayName; // Optional override
+            public string DisplayName; 
             public ulong SkinId;
             public int Amount = 1;
-            public double BuyPrice; // 0 to disable buy
-            public double SellPrice; // 0 to disable sell
-            public string Command; // Optional command to run
-            public string ImageUrl; // Optional override
+            public double BuyPrice; 
+            public double SellPrice; 
+            public string Command; 
         }
 
         private PluginConfig _config;
@@ -65,33 +63,21 @@ namespace Oxide.Plugins
         private void Init()
         {
             LoadConfigVariables();
-
-            try
-            {
-                _data = Interface.Oxide.DataFileSystem.ReadObject<StoredData>("NWG_Market");
-            }
-            catch
-            {
-                _data = new StoredData();
-            }
-            if (_data == null) _data = new StoredData();
+            LoadData();
             
             cmd.AddChatCommand(_config.ShopCommand, this, nameof(CmdShop));
             cmd.AddChatCommand(_config.BalanceCommand, this, nameof(CmdBalance));
-            cmd.AddChatCommand("setbalance", this, nameof(CmdSetBalance));
+        }
+
+        private void LoadData()
+        {
+            _data = Interface.Oxide.DataFileSystem.ReadObject<StoredData>("NWG_Market") ?? new StoredData();
         }
 
         private void LoadConfigVariables()
         {
-            try
-            {
-                _config = Config.ReadObject<PluginConfig>();
-                if (_config == null || _config.Categories.Count == 0)
-                {
-                    LoadDefaultConfig();
-                }
-            }
-            catch
+            _config = Config.ReadObject<PluginConfig>();
+            if (_config == null || _config.Categories.Count == 0)
             {
                 LoadDefaultConfig();
             }
@@ -99,103 +85,65 @@ namespace Oxide.Plugins
 
         protected override void LoadDefaultConfig()
         {
-            Puts("Creating new configuration file for NWG Market");
+            Puts("Generating NWG Market Defaults with requested pricing.");
             _config = new PluginConfig();
 
             // Resources
             var resCat = new ShopCategory { Name = "Resources" };
-            resCat.Items.Add(new ShopItem { ShortName = "wood", Amount = 1000, BuyPrice = 100, SellPrice = 50 });
-            resCat.Items.Add(new ShopItem { ShortName = "stones", Amount = 1000, BuyPrice = 200, SellPrice = 100 });
-            resCat.Items.Add(new ShopItem { ShortName = "metal.fragments", Amount = 1000, BuyPrice = 300, SellPrice = 150 });
-            resCat.Items.Add(new ShopItem { ShortName = "metal.refined", Amount = 100, BuyPrice = 500, SellPrice = 250 });
-            resCat.Items.Add(new ShopItem { ShortName = "sulfur", Amount = 1000, BuyPrice = 400, SellPrice = 200 });
-            resCat.Items.Add(new ShopItem { ShortName = "cloth", Amount = 100, BuyPrice = 100, SellPrice = 50 });
-            resCat.Items.Add(new ShopItem { ShortName = "leather", Amount = 100, BuyPrice = 200, SellPrice = 100 });
-            resCat.Items.Add(new ShopItem { ShortName = "charcoal", Amount = 1000, BuyPrice = 100, SellPrice = 50 });
+            resCat.Items.Add(new ShopItem { ShortName = "wood", Amount = 1000, BuyPrice = 100, SellPrice = 20 });
+            resCat.Items.Add(new ShopItem { ShortName = "stones", Amount = 1000, BuyPrice = 200, SellPrice = 40 });
+            resCat.Items.Add(new ShopItem { ShortName = "metal.fragments", Amount = 1000, BuyPrice = 400, SellPrice = 80 });
+            resCat.Items.Add(new ShopItem { ShortName = "metal.refined", Amount = 100, BuyPrice = 500, SellPrice = 100 });
+            resCat.Items.Add(new ShopItem { ShortName = "sulfur", Amount = 1000, BuyPrice = 500, SellPrice = 100 });
+            resCat.Items.Add(new ShopItem { ShortName = "cloth", Amount = 100, BuyPrice = 400, SellPrice = 80 });
+            resCat.Items.Add(new ShopItem { ShortName = "leather", Amount = 100, BuyPrice = 200, SellPrice = 40 });
+            resCat.Items.Add(new ShopItem { ShortName = "charcoal", Amount = 1000, BuyPrice = 500, SellPrice = 100 });
             _config.Categories.Add(resCat);
             
             // Weapons
             var weapCat = new ShopCategory { Name = "Weapons" };
-            weapCat.Items.Add(new ShopItem { ShortName = "rifle.ak", Amount = 1, BuyPrice = 1500, SellPrice = 500 });
-            weapCat.Items.Add(new ShopItem { ShortName = "rifle.semi", Amount = 1, BuyPrice = 1000, SellPrice = 300 });
-            weapCat.Items.Add(new ShopItem { ShortName = "smg.thompson", Amount = 1, BuyPrice = 800, SellPrice = 250 });
-            weapCat.Items.Add(new ShopItem { ShortName = "pistol.semi", Amount = 1, BuyPrice = 500, SellPrice = 150 });
-            weapCat.Items.Add(new ShopItem { ShortName = "shotgun.pump", Amount = 1, BuyPrice = 700, SellPrice = 200 });
-            weapCat.Items.Add(new ShopItem { ShortName = "bow.hunting", Amount = 1, BuyPrice = 100, SellPrice = 30 });
-            weapCat.Items.Add(new ShopItem { ShortName = "crossbow", Amount = 1, BuyPrice = 250, SellPrice = 70 });
-            weapCat.Items.Add(new ShopItem { ShortName = "pistol.revolver", Amount = 1, BuyPrice = 300, SellPrice = 100 });
+            weapCat.Items.Add(new ShopItem { ShortName = "rifle.ak", Amount = 1, BuyPrice = 3000, SellPrice = 600 });
+            weapCat.Items.Add(new ShopItem { ShortName = "rifle.semi", Amount = 1, BuyPrice = 1500, SellPrice = 300 });
+            weapCat.Items.Add(new ShopItem { ShortName = "smg.thompson", Amount = 1, BuyPrice = 1200, SellPrice = 250 });
+            weapCat.Items.Add(new ShopItem { ShortName = "pistol.semi", Amount = 1, BuyPrice = 950, SellPrice = 200 });
+            weapCat.Items.Add(new ShopItem { ShortName = "shotgun.pump", Amount = 1, BuyPrice = 1000, SellPrice = 200 });
+            weapCat.Items.Add(new ShopItem { ShortName = "bow.hunting", Amount = 1, BuyPrice = 120, SellPrice = 20 });
+            weapCat.Items.Add(new ShopItem { ShortName = "crossbow", Amount = 1, BuyPrice = 300, SellPrice = 60 });
+            weapCat.Items.Add(new ShopItem { ShortName = "pistol.revolver", Amount = 1, BuyPrice = 600, SellPrice = 120 });
             _config.Categories.Add(weapCat);
 
             // Ammo
             var ammoCat = new ShopCategory { Name = "Ammunition" };
-            ammoCat.Items.Add(new ShopItem { ShortName = "ammo.rifle", Amount = 128, BuyPrice = 100, SellPrice = 50 });
-            ammoCat.Items.Add(new ShopItem { ShortName = "ammo.pistol", Amount = 128, BuyPrice = 80, SellPrice = 40 });
-            ammoCat.Items.Add(new ShopItem { ShortName = "ammo.shotgun", Amount = 64, BuyPrice = 60, SellPrice = 30 });
-            ammoCat.Items.Add(new ShopItem { ShortName = "ammo.rifle.explosive", Amount = 64, BuyPrice = 500, SellPrice = 200 });
-            ammoCat.Items.Add(new ShopItem { ShortName = "arrow.wooden", Amount = 64, BuyPrice = 50, SellPrice = 20 });
+            ammoCat.Items.Add(new ShopItem { ShortName = "ammo.rifle", Amount = 128, BuyPrice = 750, SellPrice = 150 });
+            ammoCat.Items.Add(new ShopItem { ShortName = "ammo.pistol", Amount = 128, BuyPrice = 350, SellPrice = 70 });
+            ammoCat.Items.Add(new ShopItem { ShortName = "ammo.shotgun", Amount = 64, BuyPrice = 200, SellPrice = 40 });
+            ammoCat.Items.Add(new ShopItem { ShortName = "ammo.rifle.explosive", Amount = 64, BuyPrice = 1250, SellPrice = 250 });
+            ammoCat.Items.Add(new ShopItem { ShortName = "arrow.wooden", Amount = 64, BuyPrice = 100, SellPrice = 20 });
             _config.Categories.Add(ammoCat);
-
-            // Armor
-            var armorCat = new ShopCategory { Name = "Armor" };
-            armorCat.Items.Add(new ShopItem { ShortName = "hazmatsuit", Amount = 1, BuyPrice = 500, SellPrice = 150 });
-            armorCat.Items.Add(new ShopItem { ShortName = "metal.facemask", Amount = 1, BuyPrice = 1000, SellPrice = 300 });
-            armorCat.Items.Add(new ShopItem { ShortName = "metal.plate.torso", Amount = 1, BuyPrice = 1200, SellPrice = 350 });
-            armorCat.Items.Add(new ShopItem { ShortName = "roadsign.jacket", Amount = 1, BuyPrice = 600, SellPrice = 200 });
-            armorCat.Items.Add(new ShopItem { ShortName = "roadsign.kilt", Amount = 1, BuyPrice = 500, SellPrice = 150 });
-            armorCat.Items.Add(new ShopItem { ShortName = "coffeecan.helmet", Amount = 1, BuyPrice = 400, SellPrice = 120 });
-            _config.Categories.Add(armorCat);
-
-            // Tools
-            var toolCat = new ShopCategory { Name = "Tools" };
-            toolCat.Items.Add(new ShopItem { ShortName = "jackhammer", Amount = 1, BuyPrice = 1500, SellPrice = 200 });
-            toolCat.Items.Add(new ShopItem { ShortName = "chainsaw", Amount = 1, BuyPrice = 1200, SellPrice = 150 });
-            toolCat.Items.Add(new ShopItem { ShortName = "axe.salvaged", Amount = 1, BuyPrice = 300, SellPrice = 50 });
-            toolCat.Items.Add(new ShopItem { ShortName = "pickaxe.salvaged", Amount = 1, BuyPrice = 300, SellPrice = 50 });
-            _config.Categories.Add(toolCat);
 
             // Medicine
             var medCat = new ShopCategory { Name = "Medicine" };
-            medCat.Items.Add(new ShopItem { ShortName = "syringe.medical", Amount = 1, BuyPrice = 50, SellPrice = 10 });
+            medCat.Items.Add(new ShopItem { ShortName = "syringe.medical", Amount = 1, BuyPrice = 100, SellPrice = 20 });
             medCat.Items.Add(new ShopItem { ShortName = "largemedkit", Amount = 1, BuyPrice = 200, SellPrice = 40 });
             _config.Categories.Add(medCat);
 
-            // Components
-            var compCat = new ShopCategory { Name = "Components" };
-            compCat.Items.Add(new ShopItem { ShortName = "gears", Amount = 1, BuyPrice = 50, SellPrice = 25 });
-            compCat.Items.Add(new ShopItem { ShortName = "spring", Amount = 1, BuyPrice = 100, SellPrice = 50 });
-            compCat.Items.Add(new ShopItem { ShortName = "metalpipe", Amount = 1, BuyPrice = 80, SellPrice = 40 });
-            compCat.Items.Add(new ShopItem { ShortName = "riflebody", Amount = 1, BuyPrice = 500, SellPrice = 250 });
-            compCat.Items.Add(new ShopItem { ShortName = "techparts", Amount = 1, BuyPrice = 400, SellPrice = 200 });
-            _config.Categories.Add(compCat);
-
-            // Services
-            var cmdCat = new ShopCategory { Name = "Services" };
-            cmdCat.Items.Add(new ShopItem { 
-                ShortName = "raidevent.private", 
-                DisplayName = "Start Private Raid",
-                Command = "nwg.dungeon start private {steamid}",
-                BuyPrice = 2500, 
-                SellPrice = 0,
-                ImageUrl = "https://i.imgur.com/example_raid.png"
-            });
-            cmdCat.Items.Add(new ShopItem { 
-                ShortName = "raidevent.group", 
-                DisplayName = "Start Group Raid",
-                Command = "nwg.dungeon start group {steamid}",
-                BuyPrice = 5000, 
-                SellPrice = 0 
-            });
-            _config.Categories.Add(cmdCat);
+            // Tools
+            var toolCat = new ShopCategory { Name = "Tools" };
+            toolCat.Items.Add(new ShopItem { ShortName = "mining.quarry", Amount = 1, BuyPrice = 12500, SellPrice = 2000, DisplayName = "Mining Quarry" });
+            toolCat.Items.Add(new ShopItem { ShortName = "mining.pumpjack", Amount = 1, BuyPrice = 17500, SellPrice = 2500, DisplayName = "Pump Jack" });
+            toolCat.Items.Add(new ShopItem { ShortName = "survey.charge", Amount = 1, BuyPrice = 1000, SellPrice = 100, DisplayName = "Survey Charge" });
+            toolCat.Items.Add(new ShopItem { ShortName = "jackhammer", Amount = 1, BuyPrice = 1500, SellPrice = 300 });
+            toolCat.Items.Add(new ShopItem { ShortName = "chainsaw", Amount = 1, BuyPrice = 1200, SellPrice = 240 });
+            _config.Categories.Add(toolCat);
 
             SaveConfig();
         }
 
+        protected override void SaveConfig() => Config.WriteObject(_config);
+
         private void Unload()
         {
-            foreach (var player in BasePlayer.activePlayerList)
-            {
-                CuiHelper.DestroyUi(player, "NWG_Market_UI");
-            }
+            foreach (var player in BasePlayer.activePlayerList) CuiHelper.DestroyUi(player, "NWG_Market_UI");
             SaveData();
         }
 
@@ -203,141 +151,57 @@ namespace Oxide.Plugins
         private void SaveData() => Interface.Oxide.DataFileSystem.WriteObject("NWG_Market", _data);
         #endregion
 
-        #region Economy API
+        #region Economy Hook API
         [HookMethod("Balance")]
-        public double Balance(ulong playerId)
+        public double Balance(ulong playerId) => _data.Balances.TryGetValue(playerId, out var bal) ? bal : _config.StartingBalance;
+
+        [HookMethod("Withdraw")]
+        public bool Withdraw(ulong playerId, double amount)
         {
-            return _data.Balances.TryGetValue(playerId, out var bal) ? bal : _config.StartingBalance;
+            var bal = Balance(playerId);
+            if (bal < amount) return false;
+            _data.Balances[playerId] = bal - amount;
+            return true;
         }
 
         [HookMethod("Deposit")]
         public bool Deposit(ulong playerId, double amount)
         {
             if (amount < 0) return false;
-            var bal = Balance(playerId);
-            _data.Balances[playerId] = bal + amount;
+            _data.Balances[playerId] = Balance(playerId) + amount;
             return true;
         }
-
-        [HookMethod("Withdraw")]
-        public bool Withdraw(ulong playerId, double amount)
-        {
-            if (amount < 0) return false;
-            var bal = Balance(playerId);
-            if (bal < amount) return false;
-            _data.Balances[playerId] = bal - amount;
-            return true;
-        }
-        
-        // String overloads for legacy compatibility
-        [HookMethod("Balance")] public double Balance(string id) => Balance(ulong.Parse(id));
-        [HookMethod("Deposit")] public bool Deposit(string id, double a) => Deposit(ulong.Parse(id), a);
-        [HookMethod("Withdraw")] public bool Withdraw(string id, double a) => Withdraw(ulong.Parse(id), a);
-
         #endregion
 
         #region Commands
-        private void CmdBalance(BasePlayer player, string command, string[] args)
-        {
-            var bal = Balance(player.userID);
-            SendReply(player, $"Your Balance: {_config.CurrencySymbol}{bal:N2}");
-        }
-
-        private void CmdSetBalance(BasePlayer player, string command, string[] args)
-        {
-            if (!player.IsAdmin) return;
-            if (args.Length < 2) { SendReply(player, "Usage: /setbalance <player> <amount>"); return; }
-            
-            var target = BasePlayer.Find(args[0]);
-            if (target == null) { SendReply(player, "Player not found."); return; }
-            
-            if (!double.TryParse(args[1], out double amount)) { SendReply(player, "Invalid amount."); return; }
-            if (amount < 0) { SendReply(player, "Amount cannot be negative."); return; }
-
-            _data.Balances[target.userID] = amount;
-            SaveData();
-            SendReply(player, $"Set {target.displayName}'s balance to {_config.CurrencySymbol}{amount:N2}");
-        }
-
-        [ChatCommand("givemoney")]
-        private void CmdGiveMoney(BasePlayer player, string command, string[] args)
-        {
-            if (!player.IsAdmin) return;
-            if (args.Length < 2) { SendReply(player, "Usage: /givemoney <player> <amount>"); return; }
-
-            var target = BasePlayer.Find(args[0]);
-            if (target == null) { SendReply(player, "Player not found."); return; }
-
-            if (!double.TryParse(args[1], out double amount)) { SendReply(player, "Invalid amount."); return; }
-            if (amount <= 0) { SendReply(player, "Amount must be positive."); return; }
-
-            if (!_data.Balances.ContainsKey(target.userID)) _data.Balances[target.userID] = _config.StartingBalance;
-            _data.Balances[target.userID] += amount;
-            SaveData();
-            SendReply(player, $"Gave {_config.CurrencySymbol}{amount:N2} to {target.displayName}. New Balance: {_config.CurrencySymbol}{_data.Balances[target.userID]:N2}");
-        }
-
-        private void CmdShop(BasePlayer player, string command, string[] args)
-        {
-            ShowCategory(player, 0);
-        }
+        private void CmdShop(BasePlayer player) => ShowCategory(player, 0);
         
+        private void CmdBalance(BasePlayer player) => SendReply(player, $"Balance: {_config.CurrencySymbol}{Balance(player.userID):N2}");
+
         [ConsoleCommand("market.buy")]
         private void ConsoleBuy(ConsoleSystem.Arg arg)
         {
             var player = arg.Player();
             if (player == null) return;
-            
             int catIdx = arg.GetInt(0);
             int itemIdx = arg.GetInt(1);
 
             if (catIdx < 0 || catIdx >= _config.Categories.Count) return;
-            var cat = _config.Categories[catIdx];
-            if (itemIdx < 0 || itemIdx >= cat.Items.Count) return;
-            var item = cat.Items[itemIdx];
-
-            if (item.BuyPrice <= 0) return;
+            var item = _config.Categories[catIdx].Items[itemIdx];
 
             if (Withdraw(player.userID, item.BuyPrice))
             {
-                bool success = true;
-
-                if (!string.IsNullOrEmpty(item.Command))
+                var giveItem = ItemManager.CreateByName(item.ShortName, item.Amount, item.SkinId);
+                if (giveItem != null)
                 {
-                    string cmd = item.Command
-                        .Replace("{steamid}", player.UserIDString)
-                        .Replace("{username}", player.displayName);
-                        
-                    ConsoleSystem.Run(ConsoleSystem.Option.Server, cmd);
-                    SendReply(player, $"Purchased {item.DisplayName ?? item.ShortName}!");
+                    player.GiveItem(giveItem);
+                    SendReply(player, $"Purchased {item.Amount}x {item.ShortName}");
                 }
-                else
-                {
-                    var giveItem = ItemManager.CreateByName(item.ShortName, item.Amount, item.SkinId);
-                    if (giveItem != null)
-                    {
-                        player.GiveItem(giveItem);
-                        SendReply(player, $"Bought {item.Amount}x {item.ShortName} for {_config.CurrencySymbol}{item.BuyPrice}");
-                    }
-                    else
-                    {
-                        success = false;
-                    }
-                }
-
-                if (!success)
-                {
-                    Deposit(player.userID, item.BuyPrice); // Refund
-                    SendReply(player, "Error creating item.");
-                }
+                else Deposit(player.userID, item.BuyPrice); // Refund
             }
-            else
-            {
-                SendReply(player, "Insufficient funds.");
-            }
+            else SendReply(player, "Insufficient funds.");
             
-            // Refresh UI
-            ShowCategory(player, catIdx); 
+            ShowCategory(player, catIdx);
         }
 
         [ConsoleCommand("market.sell")]
@@ -345,221 +209,83 @@ namespace Oxide.Plugins
         {
             var player = arg.Player();
             if (player == null) return;
-            
             int catIdx = arg.GetInt(0);
             int itemIdx = arg.GetInt(1);
-            
-            if (catIdx < 0 || catIdx >= _config.Categories.Count) return;
-            var cat = _config.Categories[catIdx];
-            if (itemIdx < 0 || itemIdx >= cat.Items.Count) return;
-            var item = cat.Items[itemIdx];
 
-            if (item.SellPrice <= 0) return;
-
+            var item = _config.Categories[catIdx].Items[itemIdx];
             var def = ItemManager.FindItemDefinition(item.ShortName);
             if (def == null) return;
-            
-            int amountAvailable = player.inventory.GetAmount(def.itemid);
-            if (amountAvailable < item.Amount)
+
+            if (player.inventory.GetAmount(def.itemid) >= item.Amount)
             {
-                SendReply(player, $"Need {item.Amount}x {item.ShortName}.");
-                return;
+                player.inventory.Take(null, def.itemid, item.Amount);
+                Deposit(player.userID, item.SellPrice);
+                SendReply(player, $"Sold {item.Amount}x {item.ShortName}");
             }
-            
-            player.inventory.Take(null, def.itemid, item.Amount);
-            Deposit(player.userID, item.SellPrice);
-            SendReply(player, $"Sold {item.Amount}x {item.ShortName} for {_config.CurrencySymbol}{item.SellPrice}");
-            
             ShowCategory(player, catIdx);
         }
-        
+
         [ConsoleCommand("market.cat")]
-        private void ConsoleCategory(ConsoleSystem.Arg arg)
-        {
-             var player = arg.Player();
-             if (player == null) return;
-             int catIdx = arg.GetInt(0);
-             int page = arg.GetInt(1);
-             ShowCategory(player, catIdx, page);
-        }
+        private void ConsoleCategory(ConsoleSystem.Arg arg) => ShowCategory(arg.Player(), arg.GetInt(0), arg.GetInt(1));
 
         [ConsoleCommand("market.close")]
-        private void ConsoleClose(ConsoleSystem.Arg arg)
-        {
-            var player = arg.Player();
-            if (player != null) CuiHelper.DestroyUi(player, "NWG_Market_UI");
-        }
-
-        [ConsoleCommand("market.deposit")]
-        private void ConsoleAdminDeposit(ConsoleSystem.Arg arg)
-        {
-            if (arg.Player() != null && !arg.Player().IsAdmin) return;
-            
-            var target = arg.GetPlayerOrSleeper(0);
-            if (target == null) { SendReply(arg, "Player not found."); return; }
-            
-            double amount = (double)arg.GetFloat(1);
-            if (amount < 0) { SendReply(arg, "Invalid amount."); return; }
-
-            Deposit(target.userID, amount);
-            SendReply(arg, $"Deposited {amount:N2} to {target.displayName}. New balance: {Balance(target.userID):N2}");
-        }
-
-        [ConsoleCommand("market.setbalance")]
-        private void ConsoleAdminSetBalance(ConsoleSystem.Arg arg)
-        {
-            if (arg.Player() != null && !arg.Player().IsAdmin) return;
-            
-            var target = arg.GetPlayerOrSleeper(0);
-            if (target == null) { SendReply(arg, "Player not found."); return; }
-            
-            double amount = (double)arg.GetFloat(1);
-            if (amount < 0) { SendReply(arg, "Invalid amount."); return; }
-
-            _data.Balances[target.userID] = amount;
-            SendReply(arg, $"Set {target.displayName}'s balance to {amount:N2}");
-        }
+        private void ConsoleClose(ConsoleSystem.Arg arg) => CuiHelper.DestroyUi(arg.Player(), "NWG_Market_UI");
         #endregion
 
         #region UI
         private void ShowCategory(BasePlayer player, int catIndex, int page = 0)
         {
+            if (player == null) return;
             CuiHelper.DestroyUi(player, "NWG_Market_UI");
             
             var elements = new CuiElementContainer();
             var root = elements.Add(new CuiPanel {
-                Image = { Color = "0.05 0.05 0.05 0.95" },
+                Image = { Color = "0.05 0.05 0.05 0.98" },
                 RectTransform = { AnchorMin = "0.1 0.1", AnchorMax = "0.9 0.9" },
                 CursorEnabled = true
             }, "Overlay", "NWG_Market_UI");
 
-            // Header Background
-            elements.Add(new CuiPanel {
-                Image = { Color = "0.4 0.6 0.2 0.3" },
-                RectTransform = { AnchorMin = "0 0.9", AnchorMax = "1 1" }
-            }, root);
+            // Header
+            elements.Add(new CuiPanel { Image = { Color = "0.15 0.15 0.15 1" }, RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 1" } }, root);
+            elements.Add(new CuiLabel { Text = { Text = _config.ShopTitle, FontSize = 24, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.02 0.92", AnchorMax = "0.5 1" } }, root);
+            elements.Add(new CuiLabel { Text = { Text = $"BALANCE: <color=#b7d092>{_config.CurrencySymbol}{Balance(player.userID):N0}</color>", FontSize = 18, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.5 0.92", AnchorMax = "0.98 1" } }, root);
 
-            // Header Title
-            elements.Add(new CuiLabel {
-                Text = { Text = _config.ShopTitle, FontSize = 28, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" },
-                RectTransform = { AnchorMin = "0.02 0.9", AnchorMax = "0.5 1" }
-            }, root);
-
-            // Balance
-            elements.Add(new CuiLabel {
-                Text = { Text = $"Balance: <color=#b7d092>{_config.CurrencySymbol}{Balance(player.userID):N2}</color>", FontSize = 18, Align = TextAnchor.MiddleRight, Font = "robotocondensed-regular.ttf" },
-                RectTransform = { AnchorMin = "0.5 0.9", AnchorMax = "0.92 1" }
-            }, root);
-
-            // Sidebar (Left)
-            elements.Add(new CuiPanel {
-                Image = { Color = "0.1 0.1 0.1 0.5" },
-                RectTransform = { AnchorMin = "0 0", AnchorMax = "0.18 0.9" }
-            }, root);
-
-            for(int i=0; i<_config.Categories.Count; i++)
+            // Sidebar
+            for (int i = 0; i < _config.Categories.Count; i++)
             {
-                var c = _config.Categories[i];
-                bool active = (i == catIndex);
-                string color = active ? "0.4 0.6 0.2 0.8" : "0.2 0.2 0.2 0.5";
-                
+                float y = 0.85f - (i * 0.06f);
                 elements.Add(new CuiButton {
-                    Button = { Command = $"market.cat {i} 0", Color = color },
-                    RectTransform = { AnchorMin = $"0.01 {0.82f - (i+1)*0.07f}", AnchorMax = $"0.17 {0.82f - i*0.07f}" },
-                    Text = { Text = c.Name.ToUpper(), Align = TextAnchor.MiddleCenter, FontSize = 11, Font = "robotocondensed-bold.ttf" } 
+                    Button = { Command = $"market.cat {i} 0", Color = i == catIndex ? "0.4 0.6 0.2 0.8" : "0.15 0.15 0.15 0.7" },
+                    RectTransform = { AnchorMin = $"0.01 {y-0.05f}", AnchorMax = $"0.17 {y}" },
+                    Text = { Text = _config.Categories[i].Name.ToUpper(), FontSize = 12, Align = TextAnchor.MiddleCenter }
                 }, root);
             }
 
-            // Items (Grid)
-            if (catIndex >= 0 && catIndex < _config.Categories.Count)
+            // Grid
+            var cat = _config.Categories[catIndex];
+            int perPage = 12;
+            int start = page * perPage;
+            for (int i = 0; i < Math.Min(perPage, cat.Items.Count - start); i++)
             {
-                var cat = _config.Categories[catIndex];
-                int itemsPerPage = 12;
-                int cols = 4;
-                float startX = 0.20f;
-                float startY = 0.85f;
-                float width = 0.18f;
-                float height = 0.19f;
-                float xGap = 0.015f;
-                float yGap = 0.02f;
-
-                int startIndex = page * itemsPerPage;
-                int endIndex = Math.Min(startIndex + itemsPerPage, cat.Items.Count);
-
-                for(int i=startIndex; i<endIndex; i++)
-                {
-                    var item = cat.Items[i];
-                    int localIdx = i - startIndex;
-                    int r = localIdx / cols;
-                    int c = localIdx % cols;
-                    
-                    float xMin = startX + c * (width + xGap);
-                    float yMax = startY - r * (height + yGap);
-                    float xMax = xMin + width;
-                    float yMin = yMax - height;
-
-                    var pnl = elements.Add(new CuiPanel {
-                        Image = { Color = "0.15 0.15 0.15 0.8" },
-                        RectTransform = { AnchorMin = $"{xMin} {yMin}", AnchorMax = $"{xMax} {yMax}" }
-                    }, root);
-
-                    // Item Display Name
-                    elements.Add(new CuiLabel {
-                        Text = { Text = item.DisplayName ?? item.ShortName, FontSize = 12, Align = TextAnchor.UpperCenter, Font = "robotocondensed-bold.ttf" },
-                        RectTransform = { AnchorMin = "0 0.8", AnchorMax = "1 0.98" }
-                    }, pnl);
-
-                    // Buy Button
-                    if (item.BuyPrice > 0)
-                    {
-                        elements.Add(new CuiButton {
-                            Button = { Command = $"market.buy {catIndex} {i}", Color = "0.4 0.6 0.2 0.9" },
-                            RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.48 0.35" },
-                            Text = { Text = $"BUY\n{_config.CurrencySymbol}{item.BuyPrice:N0}", FontSize = 10, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }
-                        }, pnl);
-                    }
-                    
-                    // Sell Button
-                    if (item.SellPrice > 0)
-                    {
-                        elements.Add(new CuiButton {
-                            Button = { Command = $"market.sell {catIndex} {i}", Color = "0.8 0.2 0.2 0.9" },
-                            RectTransform = { AnchorMin = "0.52 0.05", AnchorMax = "0.95 0.35" },
-                            Text = { Text = $"SELL\n{_config.CurrencySymbol}{item.SellPrice:N0}", FontSize = 10, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }
-                        }, pnl);
-                    }
-                }
-
-                // Pagination Buttons
-                if (page > 0)
-                {
-                    elements.Add(new CuiButton {
-                        Button = { Command = $"market.cat {catIndex} {page - 1}", Color = "0.2 0.2 0.2 0.8" },
-                        RectTransform = { AnchorMin = "0.2 0.02", AnchorMax = "0.3 0.07" },
-                        Text = { Text = "BACK", Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }
-                    }, root);
-                }
-
-                if (endIndex < cat.Items.Count)
-                {
-                    elements.Add(new CuiButton {
-                        Button = { Command = $"market.cat {catIndex} {page + 1}", Color = "0.2 0.2 0.2 0.8" },
-                        RectTransform = { AnchorMin = "0.88 0.02", AnchorMax = "0.98 0.07" },
-                        Text = { Text = "NEXT", Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }
-                    }, root);
-                }
+                var item = cat.Items[start + i];
+                int r = i / 4, c = i % 4;
+                float xMin = 0.2f + (c * 0.19f), yMax = 0.88f - (r * 0.26f);
+                var pnl = elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.6" }, RectTransform = { AnchorMin = $"{xMin} {yMax-0.24f}", AnchorMax = $"{xMin+0.18f} {yMax}" } }, root);
+                
+                // Icon
+                string icon = (string)ImageLibrary?.Call("GetImage", item.ShortName, item.SkinId) ?? "";
+                elements.Add(new CuiElement { Parent = pnl, Components = { new CuiRawImageComponent { Png = icon }, new CuiRectTransformComponent { AnchorMin = "0.2 0.4", AnchorMax = "0.8 0.9" } } });
+                
+                // Name
+                elements.Add(new CuiLabel { Text = { Text = item.DisplayName ?? item.ShortName.ToUpper(), FontSize = 10, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.25", AnchorMax = "1 0.45" } }, pnl);
+                
+                // Buttons
+                if (item.BuyPrice > 0) elements.Add(new CuiButton { Button = { Command = $"market.buy {catIndex} {start+i}", Color = "0.3 0.5 0.2 0.8" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.48 0.2" }, Text = { Text = $"BUY\n{_config.CurrencySymbol}{item.BuyPrice:N0}", FontSize = 9 } }, pnl);
+                if (item.SellPrice > 0) elements.Add(new CuiButton { Button = { Command = $"market.sell {catIndex} {start+i}", Color = "0.7 0.2 0.2 0.8" }, RectTransform = { AnchorMin = "0.52 0.05", AnchorMax = "0.95 0.2" }, Text = { Text = $"SELL\n{_config.CurrencySymbol}{item.SellPrice:N0}", FontSize = 9 } }, pnl);
             }
-
-            // Close Button
-            elements.Add(new CuiButton {
-                Button = { Command = "market.close", Color = "0.8 0.1 0.1 0.9" },
-                RectTransform = { AnchorMin = "0.95 0.925", AnchorMax = "0.985 0.975" },
-                Text = { Text = "✕", FontSize = 20, Align = TextAnchor.MiddleCenter }
-            }, root);
 
             CuiHelper.AddUi(player, elements);
         }
         #endregion
     }
 }
-

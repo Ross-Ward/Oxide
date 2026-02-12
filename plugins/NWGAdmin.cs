@@ -137,7 +137,7 @@ namespace Oxide.Plugins
             // Security Lock
             if (player.IsAdmin && !_unlockedAdmins.Contains(player.userID))
             {
-                if (command == "login" || command == "setadminpass") return null;
+                if (command == "login" || command == "setadminpass" || command.StartsWith("nwgadmin.")) return null;
                 return false; 
             }
             
@@ -189,6 +189,9 @@ namespace Oxide.Plugins
             if (!player.IsAdmin) return;
             if (_unlockedAdmins.Contains(player.userID)) return;
 
+            player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
+            player.SendNetworkUpdateImmediate();
+
             if (!_securityData.AdminHashes.ContainsKey(player.userID))
             {
                
@@ -211,7 +214,8 @@ namespace Oxide.Plugins
             if (!player.IsAdmin) return;
             if (_securityData.AdminHashes.ContainsKey(player.userID)) { SendReply(player, "Password already set. Ask another admin to reset it if needed."); return; }
             if (args.Length == 0) { SendReply(player, "Usage: /setadminpass <password>"); return; }
-            _securityData.AdminHashes[player.userID] = HashPassword(args[0]);
+            string password = string.Join(" ", args);
+            _securityData.AdminHashes[player.userID] = HashPassword(password);
             SaveSecurityData();
             player.Kick("Security Setup Complete. Please Re-Login.");
         }
@@ -220,8 +224,9 @@ namespace Oxide.Plugins
         private void CmdLogin(BasePlayer player, string command, string[] args)
         {
             if (!player.IsAdmin || _unlockedAdmins.Contains(player.userID)) return;
-            if (args.Length == 0 || !_securityData.AdminHashes.TryGetValue(player.userID, out string hash)) { CheckAdminSecurity(player); return; }
-            if (VerifyPassword(args[0], hash))
+            string password = string.Join(" ", args);
+            if (string.IsNullOrEmpty(password) || !_securityData.AdminHashes.TryGetValue(player.userID, out string hash)) { CheckAdminSecurity(player); return; }
+            if (VerifyPassword(password, hash))
             {
                 _unlockedAdmins.Add(player.userID);
                 player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, false);
@@ -712,7 +717,7 @@ namespace Oxide.Plugins
             var player = arg.Player();
             if (player == null) return;
             if (arg.Args == null || arg.Args.Length == 0) return;
-            _tempPasswords[player.userID] = arg.Args[0];
+            _tempPasswords[player.userID] = string.Join(" ", arg.Args);
         }
         
         [ConsoleCommand("nwgadmin.submitlogin")]
@@ -757,7 +762,7 @@ namespace Oxide.Plugins
             var player = arg.Player();
             if (player == null) return;
             if (arg.Args == null || arg.Args.Length == 0) return;
-            _tempPasswords[player.userID] = arg.Args[0];
+            _tempPasswords[player.userID] = string.Join(" ", arg.Args);
         }
         
         [ConsoleCommand("nwgadmin.submitsetup")]

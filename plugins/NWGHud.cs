@@ -15,6 +15,7 @@ namespace Oxide.Plugins
         #region References
         [PluginReference] private Plugin NWGCore;
         [PluginReference] private Plugin NWGClans;
+        [PluginReference] private Plugin NWGSkills;
         [PluginReference] private Plugin Economics;
         #endregion
 
@@ -156,56 +157,31 @@ namespace Oxide.Plugins
             var parts = new List<string>();
 
             // ── Player identity: Name + Clan ──
-            if (_config.ShowPlayerName || _config.ShowClan)
-            {
-                string identity = "";
-                string clanTag = GetClanTag(player.userID);
-
-                if (_config.ShowClan && !string.IsNullOrEmpty(clanTag))
-                {
-                    identity += $"<color={_config.ClanColor}>[{clanTag}]</color> ";
-                }
-                if (_config.ShowPlayerName)
-                {
-                    identity += $"<color={_config.TextColor}>{player.displayName}</color>";
-                }
-                parts.Add(identity.Trim());
-            }
+            string identity = "";
+            string clanTag = GetClanTag(player.userID);
+            if (!string.IsNullOrEmpty(clanTag)) identity += $"<color={_config.ClanColor}>[{clanTag}]</color> ";
+            identity += $"<color={_config.TextColor}>{player.displayName}</color>";
+            parts.Add(identity.Trim());
 
             // ── Grid position ──
-            if (_config.ShowGrid)
-            {
-                parts.Add($"<color={_config.AccentColor}>GRID</color> {GetGrid(player.transform.position)}");
-            }
-
-            // ── Compass bearing ──
-            if (_config.ShowBearing)
-            {
-                float yaw = player.eyes.rotation.eulerAngles.y;
-                parts.Add($"<color={_config.AccentColor}>{GetCardinal(yaw)}</color> {yaw:0}°");
-            }
-
-            // ── In-game time ──
-            if (_config.ShowTime && TOD_Sky.Instance != null)
-            {
-                int hours = (int)TOD_Sky.Instance.Cycle.Hour;
-                int minutes = (int)((TOD_Sky.Instance.Cycle.Hour % 1) * 60);
-                parts.Add($"<color={_config.AccentColor}>{hours:00}:{minutes:00}</color>");
-            }
+            parts.Add($"<color={_config.AccentColor}>GRID</color> {GetGrid(player.transform.position)}");
 
             // ── Balance ──
-            if (_config.ShowBalance && Economics != null && Economics.IsLoaded)
+            if (Economics != null && Economics.IsLoaded)
             {
                 var bal = Economics.Call("Balance", player.UserIDString);
-                if (bal != null)
-                    parts.Add($"<color={_config.AccentColor}>$</color>{bal:N0}");
+                if (bal != null) parts.Add($"<color={_config.AccentColor}>$</color>{Convert.ToDouble(bal):N0}");
+            }
+
+            // ── Player Level ──
+            if (NWGSkills != null && NWGSkills.IsLoaded)
+            {
+                var level = NWGSkills.Call("GetLevel", player.userID);
+                parts.Add($"<color={_config.AccentColor}>LVL</color> {level ?? 1}");
             }
 
             // ── Online players ──
-            if (_config.ShowOnlinePlayers)
-            {
-                parts.Add($"<color={_config.AccentColor}>{BasePlayer.activePlayerList.Count}</color> online");
-            }
+            parts.Add($"<color={_config.AccentColor}>{BasePlayer.activePlayerList.Count}</color> online");
 
             return string.Join(sep, parts);
         }
