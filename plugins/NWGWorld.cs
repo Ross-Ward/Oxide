@@ -346,52 +346,58 @@ namespace Oxide.Plugins
                 Text = { Text = "BACK", FontSize = 9, Align = TextAnchor.MiddleCenter }
             }, root);
 
+            // Close
+            elements.Add(new CuiButton {
+                Button = { Command = "vq_close", Color = "0.7 0.2 0.2 0.8" },
+                RectTransform = { AnchorMin = "0.9 0.85", AnchorMax = "0.98 0.98" },
+                Text = { Text = "✕", FontSize = 12, Align = TextAnchor.MiddleCenter }
+            }, root);
+
             CuiHelper.AddUi(player, elements.ToJson());
         }
 
-        [ConsoleCommand("vq_inspect")]
         public void CC_VQInspect(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null) return;
             string id = arg.GetString(0);
-            Puts($"[VQ Debug] Inspect ID: {id}");
+            Puts($"[VQ Debug] CC_VQInspect: Player {p.displayName} requested ID {id}");
             ShowQuarryDetails(p, id);
         }
 
-        [ConsoleCommand("vq_addfuel")]
         public void CC_VQAddFuel(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null) return;
             string id = arg.GetString(0);
-            Puts($"[VQ Debug] Add Fuel to ID: {id}");
+            Puts($"[VQ Debug] CC_VQAddFuel: Player {p.displayName} for machine ID {id}");
             if (!_data.Quarries.TryGetValue(p.userID, out var list)) return;
             var q = list.FirstOrDefault(x => x.Id == id);
             if (q == null) return;
 
-            var diesel = p.inventory.FindItemByItemID(160073248); 
-            if (diesel == null) diesel = p.inventory.FindItemByItemID(-1035118744); 
-            
+            // Get Diesel ID dynamically
+            var dieselDef = ItemManager.FindDefinition("diesel_fuel");
+            if (dieselDef == null) { Puts("[VQ Error] Could NOT find diesel_fuel item definition!"); return; }
+
+            var diesel = p.inventory.FindItemByItemID(dieselDef.itemid);
             if (diesel == null)
             {
-                p.ChatMessage("No Diesel Fuel found!");
+                p.ChatMessage("No Diesel Fuel found in your inventory!");
                 return;
             }
 
             diesel.UseItem(1);
             q.Fuel += _config.FuelPerDiesel;
-            p.ChatMessage($"Added Diesel! Fuel: {q.Fuel}");
+            p.ChatMessage($"Added Diesel! Machine now has {q.Fuel} operating units.");
             ShowQuarryDetails(p, id);
         }
 
-        [ConsoleCommand("vq_claimone")]
         public void CC_VQClaimOne(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null) return;
             string id = arg.GetString(0);
-            Puts($"[VQ Debug] Claim One Machine: {id}");
+            Puts($"[VQ Debug] CC_VQClaimOne: Player {p.displayName} for machine ID {id}");
             if (!_data.Quarries.TryGetValue(p.userID, out var list)) return;
             var q = list.FirstOrDefault(x => x.Id == id);
             if (q == null) return;
@@ -400,10 +406,12 @@ namespace Oxide.Plugins
             {
                 if (b.Value > 0)
                 {
-                    p.GiveItem(ItemManager.CreateByName(b.Key, b.Value));
+                    var item = ItemManager.CreateByName(b.Key, b.Value);
+                    if (item != null) p.GiveItem(item);
                     q.Buffer[b.Key] = 0;
                 }
             }
+            p.ChatMessage("Claimed resources from machine!");
             ShowQuarryDetails(p, id);
         }
 
@@ -413,25 +421,26 @@ namespace Oxide.Plugins
             return name.Replace(".ore", "").Replace("metal.fragments", "Metal").Replace("high.quality.metal", "HQM").Replace("crude.oil", "Oil").Replace("lowgradefuel", "Fuel").Replace(".", " ").ToUpper();
         }
 
-        [ConsoleCommand("vq_filter")]
         public void CC_VQFilter(ConsoleSystem.Arg arg)
         {
-            Puts($"[VQ Debug] Filter: {arg.GetString(0)}");
-            ShowQuarryUI(arg.Player(), arg.GetString(0, "all"));
+            var p = arg.Player();
+            string f = arg.GetString(0, "all");
+            Puts($"[VQ Debug] CC_VQFilter: Plate {p?.displayName} set to {f}");
+            ShowQuarryUI(p, f);
         }
 
-        [ConsoleCommand("vq_close")]
         public void CC_VQClose(ConsoleSystem.Arg arg)
         {
-            Puts("[VQ Debug] Close requested");
-            CuiHelper.DestroyUi(arg.Player(), "NWG_QuarryUI");
+            var p = arg.Player();
+            Puts($"[VQ Debug] CC_VQClose: Player {p?.displayName} closed UI");
+            CuiHelper.DestroyUi(p, "NWG_QuarryUI");
         }
 
-        [ConsoleCommand("vq_deploy")]
         public void CC_VQDeploy(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null) return;
+            Puts($"[VQ Debug] CC_VQDeploy: Player {p.displayName} attempting deployment");
             var held = p.GetActiveItem();
             if (held != null && _config.QuarryYields.ContainsKey(held.info.shortname))
             {
@@ -448,13 +457,12 @@ namespace Oxide.Plugins
             }
         }
 
-        [ConsoleCommand("vq_claim")]
         public void CC_VQClaim(ConsoleSystem.Arg arg)
         {
             var p = arg.Player();
             if (p == null || !_data.Quarries.TryGetValue(p.userID, out var list)) return;
             string filter = arg.GetString(0, "all");
-            Puts($"[VQ Debug] Claim All: {filter}");
+            Puts($"[VQ Debug] CC_VQClaim: Player {p.displayName} claiming resources (Filter: {filter})");
             
             foreach (var q in list.Where(x => filter == "all" || x.Type.Contains(filter)))
             {
@@ -468,6 +476,7 @@ namespace Oxide.Plugins
                     }
                 }
             }
+            p.ChatMessage($"Claimed resources from {filter.ToUpper()}!");
             ShowQuarryUI(p, filter);
         }
         #endregion
