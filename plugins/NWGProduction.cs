@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Production", "NWG Team", "3.0.0")]
+    [Info("NWGProduction", "NWG Team", "3.0.0")]
     [Description("Optimized Smelting Controller and Furnace Splitter.")]
     public class NWGProduction : RustPlugin
     {
@@ -278,3 +278,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

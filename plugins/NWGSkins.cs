@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Skins", "NWG Team", "1.0.0")]
+    [Info("NWGSkins", "NWG Team", "1.0.0")]
     [Description("Simple UI-based Skin Manager.")]
     public class NWGSkins : RustPlugin
     {
@@ -185,3 +185,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

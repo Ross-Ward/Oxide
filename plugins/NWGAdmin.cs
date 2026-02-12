@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Admin", "NWG Team", "3.2.0")]
+    [Info("NWGAdmin", "NWG Team", "3.2.0")]
     [Description("Essential Admin Tools: Radar, Vanish, Secure Login, and Moderation.")]
     public class NWGAdmin : RustPlugin
     {
@@ -912,3 +912,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

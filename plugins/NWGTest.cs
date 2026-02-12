@@ -2,7 +2,7 @@ using Oxide.Plugins;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Test", "NWG Team", "1.0.0")]
+    [Info("NWGTest", "NWG Team", "1.0.0")]
     public class NWGTest : RustPlugin
     {
         private void Init()
@@ -32,3 +32,4 @@ namespace Oxide.Plugins
         }
     }
 }
+

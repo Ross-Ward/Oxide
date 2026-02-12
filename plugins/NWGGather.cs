@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Gather", "NWG Team", "2.0.0")]
+    [Info("NWGGather", "NWG Team", "2.0.0")]
     [Description("Configurable gather rate controller. Modify rates for mining, pickups, quarries, excavators, surveys, and dispenser types.")]
     public class NWGGather : RustPlugin
     {
@@ -850,3 +850,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

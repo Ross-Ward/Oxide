@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Random Events", "NWG Team", "3.1.0")]
+    [Info("NWGRandomEvents", "NWG Team", "3.1.0")]
     [Description("Random PvE encounters (Zombies, Animals, Bradley, Convoy) with map markers.")]
     public class NWGRandomEvents : RustPlugin
     {
@@ -240,3 +240,4 @@ namespace Oxide.Plugins
         }
     }
 }
+

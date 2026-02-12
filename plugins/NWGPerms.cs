@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Perms", "NWG Team", "1.0.0")]
+    [Info("NWGPerms", "NWG Team", "1.0.0")]
     [Description("GUI-based permissions manager. Browse players, groups, and plugins to grant/revoke permissions visually.")]
     public class NWGPerms : RustPlugin
     {
@@ -508,8 +508,16 @@ namespace Oxide.Plugins
             var p = a.Player(); if (p == null || a.Args?.Length < 2) return;
             var s = GetSession(p); s.PluginPage = Convert.ToInt32(a.Args[1]);
             CloseUI(p, false);
-            if (a.Args[0] == "true") CmdPerms(p, null, new[] { "group", s.SubjectGroup, s.PluginPage.ToString() });
-            else CmdPerms(p, null, new[] { "player", s.Subject.userID.ToString(), s.PluginPage.ToString() });
+            if (a.Args[0] == "true")
+            {
+                if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
+                CmdPerms(p, null, new[] { "group", s.SubjectGroup, s.PluginPage.ToString() });
+            }
+            else
+            {
+                if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
+                CmdPerms(p, null, new[] { "player", s.Subject.userID.ToString(), s.PluginPage.ToString() });
+            }
         }
 
         [ConsoleCommand("nwgp.permslist")]
@@ -519,6 +527,13 @@ namespace Oxide.Plugins
             var s = GetSession(p);
             int plugNum = Convert.ToInt32(a.Args[0]); string action = a.Args[1]; string perm = a.Args[2];
             string group = a.Args[3]; string allFlag = a.Args[4]; int page = Convert.ToInt32(a.Args[5]);
+
+            // Validate subject exists
+            if (group == "false" && s.Subject == null) { ShowMsg(p, "No player selected."); return; }
+            if (group == "true" && string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
+
+            // Bounds check on plugNum
+            if (plugNum < 0 || plugNum >= _plugList.Count) { RefreshPlugList(); if (plugNum < 0 || plugNum >= _plugList.Count) { ShowMsg(p, "Plugin index out of range. Try again."); return; } }
 
             // Build perm list first
             string plugName = _plugList[plugNum];
@@ -543,11 +558,17 @@ namespace Oxide.Plugins
             }
             else if (perm != "null")
             {
-                string id = s.Subject?.UserIDString;
-                if (action == "grant" && group == "false") { permission.GrantUserPermission(id, perm, null); changed = true; }
-                if (action == "revoke" && group == "false") { permission.RevokeUserPermission(id, perm); changed = true; }
-                if (action == "grant" && group == "true") { permission.GrantGroupPermission(s.SubjectGroup, perm, null); changed = true; }
-                if (action == "revoke" && group == "true") { permission.RevokeGroupPermission(s.SubjectGroup, perm); changed = true; }
+                if (group == "false")
+                {
+                    string id = s.Subject.UserIDString;
+                    if (action == "grant") { permission.GrantUserPermission(id, perm, null); changed = true; }
+                    if (action == "revoke") { permission.RevokeUserPermission(id, perm); changed = true; }
+                }
+                else
+                {
+                    if (action == "grant") { permission.GrantGroupPermission(s.SubjectGroup, perm, null); changed = true; }
+                    if (action == "revoke") { permission.RevokeGroupPermission(s.SubjectGroup, perm); changed = true; }
+                }
             }
 
             // Refresh UI
@@ -561,6 +582,7 @@ namespace Oxide.Plugins
         {
             var p = a.Player(); if (p == null || a.Args?.Length < 1) return;
             var s = GetSession(p); s.GroupPage = Convert.ToInt32(a.Args[0]);
+            if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             CloseUI(p, false); DrawGroupsForPlayerUI(p, Strip(s.Subject.displayName), s.GroupPage);
         }
 
@@ -569,6 +591,7 @@ namespace Oxide.Plugins
         {
             var p = a.Player(); if (p == null || a.Args?.Length < 1) return;
             var s = GetSession(p); s.PlayerPage = Convert.ToInt32(a.Args[0]);
+            if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
             CloseUI(p, false); DrawPlayersInGroupUI(p, s.SubjectGroup, s.PlayerPage);
         }
 
@@ -577,6 +600,7 @@ namespace Oxide.Plugins
         {
             var p = a.Player(); if (p == null || a.Args?.Length < 3) return;
             var s = GetSession(p); string g = AddSpaces(a.Args[1]); int page = Convert.ToInt32(a.Args[2]);
+            if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             if (a.Args[0] == "add") { permission.AddUserGroup(s.Subject.UserIDString, g); ShowMsg(p, $"Added to {g}"); }
             if (a.Args[0] == "remove") { permission.RemoveUserGroup(s.Subject.UserIDString, g); ShowMsg(p, $"Removed from {g}"); }
             CloseUI(p, false); DrawGroupsForPlayerUI(p, Strip(s.Subject.displayName), page);
@@ -587,6 +611,7 @@ namespace Oxide.Plugins
         {
             var p = a.Player(); if (p == null) return;
             var s = GetSession(p);
+            if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             foreach (var pm in permission.GetUserPermissions(s.Subject.UserIDString))
                 permission.RevokeUserPermission(s.Subject.UserIDString, pm);
             ShowMsg(p, "All permissions revoked.");
@@ -597,6 +622,7 @@ namespace Oxide.Plugins
         {
             var p = a.Player(); if (p == null) return;
             var s = GetSession(p); int page = a.Args?.Length > 0 ? Convert.ToInt32(a.Args[0]) : 1;
+            if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             int count = 0;
             foreach (var g in permission.GetUserGroups(s.Subject.UserIDString))
             { permission.RemoveUserGroup(s.Subject.UserIDString, g); count++; }
@@ -609,6 +635,7 @@ namespace Oxide.Plugins
         {
             var p = a.Player(); if (p == null) return;
             var s = GetSession(p);
+            if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
             foreach (var u in permission.GetUsersInGroup(s.SubjectGroup))
             {
                 string id = u.Length > 17 ? u.Substring(0, 17) : u;
@@ -622,8 +649,10 @@ namespace Oxide.Plugins
         {
             var p = a.Player(); if (p == null || a.Args?.Length < 5) return;
             var s = GetSession(p);
+            if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             s.InheritedCheck = a.Args[4] == s.InheritedCheck ? "" : a.Args[4];
             int plugNum = Convert.ToInt32(a.Args[0]); string group = a.Args[2]; int page = Convert.ToInt32(a.Args[3]);
+            if (plugNum < 0 || plugNum >= _plugList.Count) { RefreshPlugList(); if (plugNum < 0 || plugNum >= _plugList.Count) { ShowMsg(p, "Plugin index out of range."); return; } }
             string plugName = _plugList[plugNum];
             _numberedPerms.Clear(); int num = 0;
             foreach (var pm in permission.GetPermissions().OrderBy(x => x))
@@ -726,3 +755,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

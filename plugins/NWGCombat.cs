@@ -9,7 +9,7 @@ using Rust;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Combat", "NWG Team", "1.0.0")]
+    [Info("NWGCombat", "NWG Team", "1.0.0")]
     [Description("Unified Damage Control and PVP System.")]
     public class NWGCombat : RustPlugin
     {
@@ -173,3 +173,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

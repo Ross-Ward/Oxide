@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Racing", "NWG Team", "1.0.0")]
+    [Info("NWGRacing", "NWG Team", "1.0.0")]
     [Description("Organized racing events with checkpoints and rewards.")]
     public class NWGRacing : RustPlugin
     {
@@ -83,3 +83,4 @@ namespace Oxide.Plugins
         }
     }
 }
+

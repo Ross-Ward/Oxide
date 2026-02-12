@@ -9,7 +9,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG World", "NWG Team", "3.0.0")]
+    [Info("NWGWorld", "NWG Team", "3.0.0")]
     [Description("Global World Settings: Stack Sizes, Gather Rates, Crafting Speeds.")]
     public class NWGWorld : RustPlugin
     {
@@ -224,3 +224,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

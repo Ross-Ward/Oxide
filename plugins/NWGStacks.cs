@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Stacks", "NWG Team", "1.0.0")]
+    [Info("NWGStacks", "NWG Team", "1.0.0")]
     [Description("Configurable stack size controller. Increase stack sizes globally, by category, or per-item.")]
     public class NWGStacks : RustPlugin
     {
@@ -482,3 +482,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

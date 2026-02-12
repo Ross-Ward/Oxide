@@ -10,7 +10,7 @@ using Rust;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Clans", "NWG Team", "3.0.0")]
+    [Info("NWGClans", "NWG Team", "3.0.0")]
     [Description("Unified Clan and Kit System.")]
     public class NWGClans : RustPlugin
     {
@@ -331,3 +331,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Quests", "NWG Team", "1.0.0")]
+    [Info("NWGQuests", "NWG Team", "1.0.0")]
     [Description("Multi-stage quests with rewards.")]
     public class NWGQuests : RustPlugin
     {
@@ -209,3 +209,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

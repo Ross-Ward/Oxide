@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Admin Duty", "NWG Team", "1.0.0")]
+    [Info("NWGAdminDuty", "NWG Team", "1.0.0")]
     [Description("Allows staff to toggle admin powers.")]
     public class NWGAdminDuty : RustPlugin
     {
@@ -63,3 +63,4 @@ namespace Oxide.Plugins
         }
     }
 }
+

@@ -10,7 +10,7 @@ using Rust;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Raid Dungeons", "NWG Team", "3.1.0")]
+    [Info("NWGRaidDungeons", "NWG Team", "3.1.0")]
     [Description("Dungeon events and Boss fights (Private/Group/Global).")]
     public class NWGRaidDungeons : RustPlugin
     {
@@ -434,3 +434,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

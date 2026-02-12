@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Skills", "NWG Team", "1.0.0")]
+    [Info("NWGSkills", "NWG Team", "1.0.0")]
     [Description("Gathering skill trees and blueprint unlocks.")]
     public class NWGSkills : RustPlugin
     {
@@ -249,3 +249,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

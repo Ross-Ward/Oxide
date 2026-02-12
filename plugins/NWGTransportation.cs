@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Transportation", "NWG Team", "3.0.0")]
+    [Info("NWGTransportation", "NWG Team", "3.0.0")]
     [Description("Teleportation System: Homes, TPR/TPA, Warps, and Admin TP")]
     public class NWGTransportation : RustPlugin
     {
@@ -435,3 +435,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

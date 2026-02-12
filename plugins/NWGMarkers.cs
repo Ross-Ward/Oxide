@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Markers", "NWG Team", "1.0.0")]
+    [Info("NWGMarkers", "NWG Team", "1.0.0")]
     [Description("Create and manage custom map markers with full control over appearance and behavior.")]
     public class NWGMarkers : RustPlugin
     {
@@ -420,3 +420,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Core", "NWG Team", "3.0.0")]
+    [Info("NWGCore", "NWG Team", "3.0.0")]
     [Description("Central Hub for NWG Plugin Suite. Provides performance services and shared infrastructure.")]
     public class NWGCore : RustPlugin
     {
@@ -306,4 +306,5 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+
 

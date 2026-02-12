@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Config Editor", "NWG Team", "1.0.0")]
+    [Info("NWGConfigEditor", "NWG Team", "1.0.0")]
     [Description("In-game config editor for all NWG plugins.")]
     public class NWGConfigEditor : RustPlugin
     {
@@ -750,3 +750,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

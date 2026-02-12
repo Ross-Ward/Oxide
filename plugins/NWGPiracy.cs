@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Piracy", "NWG Team", "1.1.0")]
+    [Info("NWGPiracy", "NWG Team", "1.1.0")]
     [Description("High-seas piracy features: Tugboat Raiders and Deep Sea Salvage with map markers.")]
     public class NWGPiracy : RustPlugin
     {
@@ -166,3 +166,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

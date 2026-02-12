@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Chat", "NWG Team", "3.0.0")]
+    [Info("NWGChat", "NWG Team", "3.0.0")]
     [Description("Manages Chat Formatting, Titles, and Groups for NWG.")]
     public class NWGChat : RustPlugin
     {
@@ -172,4 +172,5 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+
 

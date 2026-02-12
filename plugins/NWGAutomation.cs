@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Automation", "NWG Team", "3.1.0")]
+    [Info("NWGAutomation", "NWG Team", "3.1.0")]
     [Description("Automated Base Management: Doors, Locks, Codes, Authorization + Player Settings UI.")]
     public class NWGAutomation : RustPlugin
     {
@@ -479,3 +479,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Base Raid", "NWG Team", "3.0.0")]
+    [Info("NWGBaseRaid", "NWG Team", "3.0.0")]
     [Description("Key-based base raiding system.")]
     public class NWGBaseRaid : RustPlugin
     {
@@ -126,3 +126,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG HUD", "NWG Team", "4.0.0")]
+    [Info("NWGHUD", "NWG Team", "4.0.0")]
     [Description("Clean top HUD bar below compass showing player identity, clan, grid, bearing, time, and balance.")]
     public class NWGHud : RustPlugin
     {
@@ -260,3 +260,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

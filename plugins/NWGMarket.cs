@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Market", "NWG Team", "3.0.0")]
+    [Info("NWGMarket", "NWG Team", "3.0.0")]
     [Description("In-game Shop and Economy for NWG.")]
     public class NWGMarket : RustPlugin
     {
@@ -562,3 +562,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

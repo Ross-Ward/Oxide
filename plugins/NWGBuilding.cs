@@ -9,7 +9,7 @@ using Rust;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Building", "NWG Team", "3.1.0")]
+    [Info("NWGBuilding", "NWG Team", "3.1.0")]
     [Description("Building Utilities: /remove tool with hammer hit detection and refunds.")]
     public class NWGBuilding : RustPlugin
     {
@@ -175,3 +175,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

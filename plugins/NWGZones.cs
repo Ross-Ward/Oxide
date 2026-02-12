@@ -9,7 +9,7 @@ using Rust;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Zones", "NWG Team", "3.0.0")]
+    [Info("NWGZones", "NWG Team", "3.0.0")]
     [Description("Zone Management for NWG. PVP/PVE/Safe zones.")]
     public class NWGZones : RustPlugin
     {
@@ -313,3 +313,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+
