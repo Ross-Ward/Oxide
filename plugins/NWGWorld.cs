@@ -376,7 +376,7 @@ namespace Oxide.Plugins
             if (q == null) return;
 
             // Get Diesel ID dynamically
-            var dieselDef = ItemManager.FindDefinition("diesel_fuel");
+            var dieselDef = ItemManager.FindItemDefinition("diesel_fuel");
             if (dieselDef == null) { Puts("[VQ Error] Could NOT find diesel_fuel item definition!"); return; }
 
             var diesel = p.inventory.FindItemByItemID(dieselDef.itemid);

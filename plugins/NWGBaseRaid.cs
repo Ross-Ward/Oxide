@@ -12,7 +12,18 @@ namespace Oxide.Plugins
     [Description("Key-based base raiding system.")]
     public class NWGBaseRaid : RustPlugin
     {
-        private Dictionary<ulong, RaidWindow> _activeRaids = new Dictionary<ulong, RaidWindow>();
+        private Dictionary<Vector3, RaidWindow> _activeRaids = new Dictionary<Vector3, RaidWindow>();
+
+        private string GetGrid(Vector3 pos)
+        {
+            float size = TerrainMeta.Size.x;
+            float offset = size / 2;
+            int x = Mathf.FloorToInt((pos.x + offset) / 146.3f);
+            int z = Mathf.FloorToInt((size - (pos.z + offset)) / 146.3f);
+            string letters = "";
+            while (x >= 0) { letters = (char)('A' + (x % 26)) + letters; x = (x / 26) - 1; }
+            return $"{letters}{z}";
+        }
 
         private class RaidWindow
         {
@@ -45,7 +56,7 @@ namespace Oxide.Plugins
             // Drop a map (Note)
             var map = ItemManager.CreateByName("note", 1);
             map.name = $"Raid Map: {victimName}'s Base";
-            map.text = $"Base Location: {Math.Round(basePos.x)}, {Math.Round(basePos.z)}";
+            map.text = $"Base Location: {GetGrid(basePos)} ({Math.Round(basePos.x)}, {Math.Round(basePos.z)})";
             map.Drop(pos + new Vector3(0, 1, 0), Vector3.up);
 
             // Drop a key (Customized item)
@@ -81,18 +92,22 @@ namespace Oxide.Plugins
                 var tc = ent.GetBuildingPrivilege();
                 if (tc == null) { player.ChatMessage("Look at a building to start the raid."); return; }
 
-                ulong baseId = tc.net.ID.Value;
-                if (_activeRaids.ContainsKey(baseId)) { player.ChatMessage("This base is already being raided!"); return; }
+                Vector3 basePos = tc.transform.position;
+                if (_activeRaids.Keys.Any(p => Vector3.Distance(p, basePos) < 50f)) 
+                { 
+                    player.ChatMessage("This base area is already being raided!"); 
+                    return; 
+                }
 
-                _activeRaids[baseId] = new RaidWindow {
+                _activeRaids[basePos] = new RaidWindow {
                     EndTime = Time.realtimeSinceStartup + 1800f, // 30 minutes
                     RaiderId = player.userID,
-                    BasePos = tc.transform.position
+                    BasePos = basePos
                 };
 
                 key.UseItem(1);
-                player.ChatMessage("<color=#FF6B6B>RAID STARTED!</color> You have 30 minutes to breach this base.");
-                Puts($"[NWG Raid Logic] Raid started on base {baseId} by {player.displayName}");
+                player.ChatMessage($"<color=#FF6B6B>RAID STARTED!</color> You have 30 minutes to breach the base at <color=yellow>{GetGrid(basePos)}</color>.");
+                Puts($"[NWG Raid Logic] Raid started on base at {basePos} (Grid: {GetGrid(basePos)}) by {player.displayName}");
             }
         }
         #endregion
@@ -104,18 +119,20 @@ namespace Oxide.Plugins
             if (!(entity is BuildingBlock) && !(entity is Door)) return null;
 
             var tc = entity.GetBuildingPrivilege();
-            if (tc == null) return null;
+            Vector3 targetPos = tc != null ? tc.transform.position : entity.transform.position;
 
-            ulong baseId = tc.net.ID.Value;
-            if (_activeRaids.TryGetValue(baseId, out var raid))
+            foreach (var kvp in _activeRaids.ToList())
             {
-                if (Time.realtimeSinceStartup < raid.EndTime)
-                    return null; // Allow damage
-                
-                _activeRaids.Remove(baseId);
+                if (Vector3.Distance(kvp.Key, targetPos) < 100f) // 100m radius for raids
+                {
+                    if (Time.realtimeSinceStartup < kvp.Value.EndTime)
+                        return null; // Allow damage
+                    
+                    _activeRaids.Remove(kvp.Key);
+                }
             }
 
-            // If no active raid, block damage
+            // If no active raid found nearby, block damage from players
             if (info.Initiator is BasePlayer)
             {
                 return true; // Block damage

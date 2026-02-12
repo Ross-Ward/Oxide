@@ -167,6 +167,24 @@ namespace Oxide.Plugins
         }
         
         private void Msg(BasePlayer player, string msg) => player.ChatMessage($"<color=#00ccff>[TP]</color> {msg}");
+
+        private string GetGrid(Vector3 pos)
+        {
+            float size = TerrainMeta.Size.x;
+            float offset = size / 2;
+            
+            int x = Mathf.FloorToInt((pos.x + offset) / 146.3f);
+            int z = Mathf.FloorToInt((size - (pos.z + offset)) / 146.3f);
+            
+            string letters = "";
+            while (x >= 0)
+            {
+                letters = (char)('A' + (x % 26)) + letters;
+                x = (x / 26) - 1;
+            }
+            
+            return $"{letters}{z}";
+        }
         #endregion
 
         #region Teleport Logic
@@ -422,14 +440,51 @@ namespace Oxide.Plugins
         {
             if (!player.IsAdmin) return;
             
-            if (args.Length == 0) return;
+            if (args.Length == 0)
+            {
+                Msg(player, "Usage: /tp <player> or /tp <x> <y> <z>");
+                return;
+            }
             
+            if (args.Length >= 3)
+            {
+                if (float.TryParse(args[0], out float x) && float.TryParse(args[1], out float y) && float.TryParse(args[2], out float z))
+                {
+                    DoTeleport(player, new Vector3(x, y, z));
+                    Msg(player, $"Teleported to coordinates: {x}, {y}, {z}");
+                    return;
+                }
+            }
+
             var target = BasePlayer.Find(args[0]);
             if (target != null)
             {
-                player.Teleport(target);
+                DoTeleport(player, target.transform.position);
                 Msg(player, $"Teleported to {target.displayName}");
                 return;
+            }
+            
+            Msg(player, "Player not found or invalid coordinates.");
+        }
+
+        [ChatCommand("tpc")]
+        private void CmdTpc(BasePlayer player, string command, string[] args)
+        {
+            if (!player.IsAdmin) return;
+            if (args.Length < 3)
+            {
+                Msg(player, "Usage: /tpc <x> <y> <z>");
+                return;
+            }
+
+            if (float.TryParse(args[0], out float x) && float.TryParse(args[1], out float y) && float.TryParse(args[2], out float z))
+            {
+                DoTeleport(player, new Vector3(x, y, z));
+                Msg(player, $"Teleported to {x}, {y}, {z}");
+            }
+            else
+            {
+                Msg(player, "Invalid coordinates.");
             }
         }
         #endregion

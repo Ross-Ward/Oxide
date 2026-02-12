@@ -66,6 +66,17 @@ namespace Oxide.Plugins
         private Timer _eventTimer;
         private Timer _waveCheckTimer;
         private Timer _entranceCheckTimer;
+
+        private string GetGrid(Vector3 pos)
+        {
+            float size = TerrainMeta.Size.x;
+            float offset = size / 2;
+            int x = Mathf.FloorToInt((pos.x + offset) / 146.3f);
+            int z = Mathf.FloorToInt((size - (pos.z + offset)) / 146.3f);
+            string letters = "";
+            while (x >= 0) { letters = (char)('A' + (x % 26)) + letters; x = (x / 26) - 1; }
+            return $"{letters}{z}";
+        }
         #endregion
 
         #region Lifecycle
@@ -234,7 +245,7 @@ namespace Oxide.Plugins
                     dungeon.Entities.Add(sign);
                 }
                 
-                PrintToChat("<color=#FF6B6B>⚔ GLOBAL RAID EVENT STARTED! ⚔</color>\nA dungeon entrance has appeared! Check your map for a <color=#FF4444>red marker</color>.\n<color=#AAAAAA>Walk into the dome to enter the dungeon.</color>");
+                PrintToChat($"<color=#FF6B6B>⚔ GLOBAL RAID EVENT STARTED! ⚔</color>\nA dungeon entrance has appeared at <color=yellow>{GetGrid(entrance)}</color>! Check your map for a <color=#FF4444>red marker</color>.\n<color=#AAAAAA>Walk into the dome to enter the dungeon.</color>");
             }
 
             BuildDungeon(dungeon);
