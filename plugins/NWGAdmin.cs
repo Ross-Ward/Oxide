@@ -606,48 +606,9 @@ namespace Oxide.Plugins
             string panelName = "NWG_Sec_Login";
             CuiHelper.DestroyUi(player, panelName);
 
-            // Main background
-            elements.Add(new CuiPanel { Image = { Color = "0 0 0 0.85" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", panelName);
-            
-            // Title
-            elements.Add(new CuiLabel { Text = { Text = "ADMIN ACCESS LOCKED", FontSize = 35, Align = TextAnchor.MiddleCenter, Color = "1 0 0 1" }, RectTransform = { AnchorMin = "0 0.65", AnchorMax = "1 0.75" } }, panelName);
-            
-            // Instruction
-            elements.Add(new CuiLabel { Text = { Text = "Enter your admin password below:", FontSize = 16, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0 0.58", AnchorMax = "1 0.63" } }, panelName);
-            
-            // Input panel background
-            elements.Add(new CuiPanel { Image = { Color = "0.2 0.2 0.2 0.9" }, RectTransform = { AnchorMin = "0.35 0.48", AnchorMax = "0.65 0.54" } }, panelName, panelName + "_InputBg");
-            
-            // Password input field
-            elements.Add(new CuiElement
-            {
-                Parent = panelName + "_InputBg",
-                Components =
-                {
-                    new CuiInputFieldComponent
-                    {
-                        Align = TextAnchor.MiddleCenter,
-                        CharsLimit = 50,
-                        Command = "nwgadmin.trylogin",
-                        FontSize = 16,
-                        IsPassword = true,
-                        Text = ""
-                    },
-                    new CuiRectTransformComponent { AnchorMin = "0.05 0.1", AnchorMax = "0.95 0.9" }
-                }
-            });
-            
-            // Submit button
-            elements.Add(new CuiButton 
-            { 
-                Button = { Command = "nwgadmin.submitlogin", Color = "0.2 0.7 0.2 0.9" }, 
-                RectTransform = { AnchorMin = "0.4 0.4", AnchorMax = "0.6 0.46" }, 
-                Text = { Text = "LOGIN", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" } 
-            }, panelName);
-            
-            // Alternative: Chat command hint
-            elements.Add(new CuiLabel { Text = { Text = "Or use: /login <password>", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "0.6 0.6 0.6 1" }, RectTransform = { AnchorMin = "0 0.32", AnchorMax = "1 0.36" } }, panelName);
-            
+            elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.98" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
+            elements.Add(new CuiLabel { Text = { Text = "SECURITY SETUP REQUIRED", FontSize = 30, Align = TextAnchor.MiddleCenter, Color = "1 0.5 0 1" }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
+            elements.Add(new CuiLabel { Text = { Text = "You are an Admin without a password.\nPlease set one now: /setadminpass <password>", FontSize = 18, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
             CuiHelper.AddUi(player, elements);
         }
 
@@ -658,51 +619,9 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, panelName);
             CuiHelper.DestroyUi(player, "NWG_Sec_Login");
 
-            // Main background
-            elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.95" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", panelName);
-            
-            // Title
-            elements.Add(new CuiLabel { Text = { Text = "SECURITY SETUP REQUIRED", FontSize = 30, Align = TextAnchor.MiddleCenter, Color = "1 0.5 0 1" }, RectTransform = { AnchorMin = "0 0.65", AnchorMax = "1 0.75" } }, panelName);
-            
-            // Instructions
-            elements.Add(new CuiLabel { Text = { Text = "You are an Admin without a password.\nPlease set one now using the input below:", FontSize = 16, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0 0.55", AnchorMax = "1 0.63" } }, panelName);
-            
-            // Input panel background
-            elements.Add(new CuiPanel { Image = { Color = "0.2 0.2 0.2 0.9" }, RectTransform = { AnchorMin = "0.35 0.48", AnchorMax = "0.65 0.54" } }, panelName, panelName + "_InputBg");
-            
-            // Password input field
-            elements.Add(new CuiElement
-            {
-                Parent = panelName + "_InputBg",
-                Components =
-                {
-                    new CuiInputFieldComponent
-                    {
-                        Align = TextAnchor.MiddleCenter,
-                        CharsLimit = 50,
-                        Command = "nwgadmin.trysetpass",
-                        FontSize = 16,
-                        IsPassword = true,
-                        Text = ""
-                    },
-                    new CuiRectTransformComponent { AnchorMin = "0.05 0.1", AnchorMax = "0.95 0.9" }
-                }
-            });
-            
-            // Submit button
-            elements.Add(new CuiButton 
-            { 
-                Button = { Command = "nwgadmin.submitsetup", Color = "0.7 0.5 0.2 0.9" }, 
-                RectTransform = { AnchorMin = "0.4 0.4", AnchorMax = "0.6 0.46" }, 
-                Text = { Text = "SET PASSWORD", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" } 
-            }, panelName);
-            
-            // Warning
-            elements.Add(new CuiLabel { Text = { Text = "YOU WILL BE KICKED AFTER SETUP", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 0.3 0.3 1" }, RectTransform = { AnchorMin = "0 0.32", AnchorMax = "1 0.36" } }, panelName);
-            
-            // Alternative: Chat command hint
-            elements.Add(new CuiLabel { Text = { Text = "Or use: /setadminpass <password>", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "0.6 0.6 0.6 1" }, RectTransform = { AnchorMin = "0 0.28", AnchorMax = "1 0.32" } }, panelName);
-            
+            elements.Add(new CuiPanel { Image = { Color = "0 0 0 1" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
+             elements.Add(new CuiLabel { Text = { Text = "ADMIN ACCESS LOCKED", FontSize = 35, Align = TextAnchor.MiddleCenter, Color = "1 0 0 1" }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
+            elements.Add(new CuiLabel { Text = { Text = "Login Required: /login <password>", FontSize = 18, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
             CuiHelper.AddUi(player, elements);
         }
         
