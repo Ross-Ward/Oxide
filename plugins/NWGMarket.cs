@@ -230,6 +230,82 @@ namespace Oxide.Plugins
 
         [ConsoleCommand("market.close")]
         private void ConsoleClose(ConsoleSystem.Arg arg) => CuiHelper.DestroyUi(arg.Player(), "NWG_Market_UI");
+
+        [ConsoleCommand("market.sellall")]
+        private void ConsoleSellAll(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            int catIdx = arg.GetInt(0);
+            if (catIdx < 0 || catIdx >= _config.Categories.Count) return;
+
+            var cat = _config.Categories[catIdx];
+            double totalEarned = 0;
+            int totalSold = 0;
+
+            foreach (var item in cat.Items)
+            {
+                if (item.SellPrice <= 0) continue;
+                var def = ItemManager.FindItemDefinition(item.ShortName);
+                if (def == null) continue;
+
+                int available = player.inventory.GetAmount(def.itemid);
+                int stacks = available / item.Amount;
+                if (stacks <= 0) continue;
+
+                int toTake = stacks * item.Amount;
+                player.inventory.Take(null, def.itemid, toTake);
+                double earned = stacks * item.SellPrice;
+                totalEarned += earned;
+                totalSold += toTake;
+            }
+
+            if (totalEarned > 0)
+            {
+                Deposit(player.userID, totalEarned);
+                SendReply(player, $"Sold {totalSold} items for {_config.CurrencySymbol}{totalEarned:N0}");
+            }
+            else
+            {
+                SendReply(player, "Nothing to sell in this category.");
+            }
+
+            ShowCategory(player, catIdx);
+        }
+
+        [ConsoleCommand("market.sellallitem")]
+        private void ConsoleSellAllItem(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            int catIdx = arg.GetInt(0);
+            int itemIdx = arg.GetInt(1);
+
+            if (catIdx < 0 || catIdx >= _config.Categories.Count) return;
+            var cat = _config.Categories[catIdx];
+            if (itemIdx < 0 || itemIdx >= cat.Items.Count) return;
+
+            var item = cat.Items[itemIdx];
+            if (item.SellPrice <= 0) return;
+            var def = ItemManager.FindItemDefinition(item.ShortName);
+            if (def == null) return;
+
+            int available = player.inventory.GetAmount(def.itemid);
+            int stacks = available / item.Amount;
+            if (stacks <= 0)
+            {
+                SendReply(player, $"You don't have enough {item.DisplayName ?? item.ShortName} to sell.");
+                ShowCategory(player, catIdx);
+                return;
+            }
+
+            int toTake = stacks * item.Amount;
+            player.inventory.Take(null, def.itemid, toTake);
+            double earned = stacks * item.SellPrice;
+            Deposit(player.userID, earned);
+            SendReply(player, $"Sold {toTake}x {item.DisplayName ?? item.ShortName} for {_config.CurrencySymbol}{earned:N0}");
+            ShowCategory(player, catIdx);
+        }
         #endregion
 
         #region UI
@@ -248,7 +324,14 @@ namespace Oxide.Plugins
             // Header
             elements.Add(new CuiPanel { Image = { Color = "0.15 0.15 0.15 1" }, RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 1" } }, root);
             elements.Add(new CuiLabel { Text = { Text = _config.ShopTitle, FontSize = 24, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.02 0.92", AnchorMax = "0.5 1" } }, root);
-            elements.Add(new CuiLabel { Text = { Text = $"BALANCE: <color=#b7d092>{_config.CurrencySymbol}{Balance(player.userID):N0}</color>", FontSize = 18, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.5 0.92", AnchorMax = "0.98 1" } }, root);
+            elements.Add(new CuiLabel { Text = { Text = $"BALANCE: <color=#b7d092>{_config.CurrencySymbol}{Balance(player.userID):N0}</color>", FontSize = 18, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.5 0.92", AnchorMax = "0.9 1" } }, root);
+
+            // Close Button
+            elements.Add(new CuiButton {
+                Button = { Command = "market.close", Color = "0.8 0.2 0.2 0.8" },
+                RectTransform = { AnchorMin = "0.93 0.93", AnchorMax = "0.99 0.99" },
+                Text = { Text = "✕", FontSize = 20, Align = TextAnchor.MiddleCenter }
+            }, root);
 
             // Sidebar
             for (int i = 0; i < _config.Categories.Count; i++)
@@ -260,6 +343,14 @@ namespace Oxide.Plugins
                     Text = { Text = _config.Categories[i].Name.ToUpper(), FontSize = 12, Align = TextAnchor.MiddleCenter }
                 }, root);
             }
+
+            // Sell All Button (below category buttons)
+            float sellAllY = 0.85f - (_config.Categories.Count * 0.06f) - 0.02f;
+            elements.Add(new CuiButton {
+                Button = { Command = $"market.sellall {catIndex}", Color = "0.7 0.3 0.1 0.9" },
+                RectTransform = { AnchorMin = $"0.01 {sellAllY - 0.05f}", AnchorMax = $"0.17 {sellAllY}" },
+                Text = { Text = "⚡ SELL ALL", FontSize = 12, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }
+            }, root);
 
             // Grid
             var cat = _config.Categories[catIndex];
@@ -280,8 +371,24 @@ namespace Oxide.Plugins
                 elements.Add(new CuiLabel { Text = { Text = item.DisplayName ?? item.ShortName.ToUpper(), FontSize = 10, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.25", AnchorMax = "1 0.45" } }, pnl);
                 
                 // Buttons
-                if (item.BuyPrice > 0) elements.Add(new CuiButton { Button = { Command = $"market.buy {catIndex} {start+i}", Color = "0.3 0.5 0.2 0.8" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.48 0.2" }, Text = { Text = $"BUY\n{_config.CurrencySymbol}{item.BuyPrice:N0}", FontSize = 9 } }, pnl);
-                if (item.SellPrice > 0) elements.Add(new CuiButton { Button = { Command = $"market.sell {catIndex} {start+i}", Color = "0.7 0.2 0.2 0.8" }, RectTransform = { AnchorMin = "0.52 0.05", AnchorMax = "0.95 0.2" }, Text = { Text = $"SELL\n{_config.CurrencySymbol}{item.SellPrice:N0}", FontSize = 9 } }, pnl);
+                bool hasBuy = item.BuyPrice > 0;
+                bool hasSell = item.SellPrice > 0;
+                if (hasBuy && hasSell)
+                {
+                    // 3-button layout: Buy | Sell x1 | Sell All
+                    elements.Add(new CuiButton { Button = { Command = $"market.buy {catIndex} {start+i}", Color = "0.3 0.5 0.2 0.8" }, RectTransform = { AnchorMin = "0.03 0.05", AnchorMax = "0.34 0.2" }, Text = { Text = $"BUY\n{_config.CurrencySymbol}{item.BuyPrice:N0}", FontSize = 8 } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.sell {catIndex} {start+i}", Color = "0.7 0.2 0.2 0.8" }, RectTransform = { AnchorMin = "0.36 0.05", AnchorMax = "0.65 0.2" }, Text = { Text = $"SELL\n{_config.CurrencySymbol}{item.SellPrice:N0}", FontSize = 8 } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.sellallitem {catIndex} {start+i}", Color = "0.7 0.3 0.1 0.9" }, RectTransform = { AnchorMin = "0.67 0.05", AnchorMax = "0.97 0.2" }, Text = { Text = "SELL\nALL", FontSize = 8 } }, pnl);
+                }
+                else if (hasBuy)
+                {
+                    elements.Add(new CuiButton { Button = { Command = $"market.buy {catIndex} {start+i}", Color = "0.3 0.5 0.2 0.8" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.2" }, Text = { Text = $"BUY {_config.CurrencySymbol}{item.BuyPrice:N0}", FontSize = 9 } }, pnl);
+                }
+                else if (hasSell)
+                {
+                    elements.Add(new CuiButton { Button = { Command = $"market.sell {catIndex} {start+i}", Color = "0.7 0.2 0.2 0.8" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.48 0.2" }, Text = { Text = $"SELL\n{_config.CurrencySymbol}{item.SellPrice:N0}", FontSize = 9 } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.sellallitem {catIndex} {start+i}", Color = "0.7 0.3 0.1 0.9" }, RectTransform = { AnchorMin = "0.52 0.05", AnchorMax = "0.95 0.2" }, Text = { Text = "SELL ALL", FontSize = 9 } }, pnl);
+                }
             }
 
             CuiHelper.AddUi(player, elements);

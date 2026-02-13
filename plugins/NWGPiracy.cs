@@ -31,14 +31,21 @@ namespace Oxide.Plugins
 
         private void CleanupPirates()
         {
-            foreach (var ent in _activePirateEntities.ToList())
+            // Kill in reverse order so children are destroyed before their parents,
+            // avoiding cascading OnParentRemoved crashes on BasePlayer/HumanNPC entities.
+            var list = _activePirateEntities.ToList();
+            list.Reverse();
+            foreach (var ent in list)
             {
-                if (ent == null || ent.IsDestroyed) continue;
-                
-                // Unparent to ensure safe destruction of children vs parents
-                if (ent.GetParentEntity() != null) ent.SetParent(null);
-                
-                ent.Kill();
+                try
+                {
+                    if (ent == null || ent.IsDestroyed) continue;
+                    ent.Kill();
+                }
+                catch (Exception ex)
+                {
+                    PrintWarning($"[NWG Piracy] Error cleaning up entity: {ex.Message}");
+                }
             }
             _activePirateEntities.Clear();
         }
@@ -109,8 +116,9 @@ namespace Oxide.Plugins
             var crate = GameManager.server.CreateEntity("assets/prefabs/deployable/chinooklockedcrate/codelockedhackablecrate.prefab", tugboat.transform.position + (Vector3.up * 3)) as HackableLockedCrate;
             if (crate != null)
             {
-                crate.SetParent(tugboat);
                 crate.Spawn();
+                crate.SetParent(tugboat, true, true);
+                _activePirateEntities.Add(crate);
             }
 
             // Spawn some scientists as pirates
@@ -119,8 +127,9 @@ namespace Oxide.Plugins
                 var pirate = GameManager.server.CreateEntity("assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_heavy.prefab", tugboat.transform.position + Vector3.up) as HumanNPC;
                 if (pirate != null)
                 {
-                    pirate.SetParent(tugboat);
                     pirate.Spawn();
+                    pirate.SetParent(tugboat, true, true);
+                    _activePirateEntities.Add(pirate);
                 }
             }
 
