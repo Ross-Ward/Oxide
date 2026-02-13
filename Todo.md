@@ -1,0 +1,10 @@
+TODO
+- admin - fix login logic [DONE]
+- /remove RPC Error fix [DONE]
+- NWG Stacks/Gather persistence fix [DONE: Conflicts removed from NWGWorld]
+- HUD format update with Levels [DONE]
+- Add Craftmanager (Crafting Overrides) [DONE: Integrated in NWGWorld]
+- Shop UI (Images/Names) [DONE]
+- Shop Prices & New Items [DONE]
+- Virtual Quarries [DONE: /vquarry command in NWGWorld]
+- Expanded Workshop Area of Influence [DONE: Radius in NWGWorld]

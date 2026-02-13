@@ -10,7 +10,7 @@ using Rust;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Raid Dungeons", "NWG Team", "3.0.0")]
+    [Info("NWGRaidDungeons", "NWG Team", "3.1.0")]
     [Description("Dungeon events and Boss fights (Private/Group/Global).")]
     public class NWGRaidDungeons : RustPlugin
     {
@@ -19,9 +19,13 @@ namespace Oxide.Plugins
         {
             public float EventIntervalHours = 3.0f;
             public Vector3 DungeonPosition = new Vector3(2000, 200, 2000);
-            public string ScientistPrefab = "assets/prefabs/npc/scientist/scientist.prefab";
-            public string TurretPrefab = "assets/prefabs/deployable/tier 2 turtle turret/turret.deployed.prefab";
-            public string CratePrefab = "assets/prefabs/deployable/chinookinventory/chinooklockedcrate.prefab";
+            public string ScientistPrefab = "assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_heavy.prefab";
+            public string TurretPrefab = "assets/prefabs/npc/autoturret/autoturret_deployed.prefab";
+            public string CratePrefab = "assets/prefabs/deployable/chinooklockedcrate/codelockedhackablecrate.prefab";
+            public string FloorPrefab = "assets/prefabs/building core/floor/floor.prefab";
+            public string BossPrefab = "assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_full_any.prefab";
+            public float DomeRadius = 50f; // Visual dome size at entrance
+            public float EntranceTeleportRadius = 5f; // How close players must be to enter
         }
 
         private PluginConfig _config;
@@ -37,6 +41,8 @@ namespace Oxide.Plugins
             _config = new PluginConfig();
             SaveConfig();
         }
+
+        protected override void SaveConfig() => Config.WriteObject(_config);
         #endregion
 
         #region Internal State
@@ -53,9 +59,24 @@ namespace Oxide.Plugins
         }
 
         private List<ActiveDungeon> _activeDungeons = new List<ActiveDungeon>();
-        private BaseEntity _activeEventDome;
+        private List<SphereEntity> _activeEventDomes = new List<SphereEntity>();
+        private MapMarkerGenericRadius _activeMapMarker;
+        private Vector3 _globalEntrancePos = Vector3.zero;
+        private ActiveDungeon _globalDungeon;
         private Timer _eventTimer;
         private Timer _waveCheckTimer;
+        private Timer _entranceCheckTimer;
+
+        private string GetGrid(Vector3 pos)
+        {
+            float size = TerrainMeta.Size.x;
+            float offset = size / 2;
+            int x = Mathf.FloorToInt((pos.x + offset) / 146.3f);
+            int z = Mathf.FloorToInt((size - (pos.z + offset)) / 146.3f);
+            string letters = "";
+            while (x >= 0) { letters = (char)('A' + (x % 26)) + letters; x = (x / 26) - 1; }
+            return $"{letters}{z}";
+        }
         #endregion
 
         #region Lifecycle
@@ -72,6 +93,20 @@ namespace Oxide.Plugins
             LoadConfigVariables();
             _eventTimer = timer.Every(_config.EventIntervalHours * 3600, () => StartDungeon(DungeonType.Global));
             _waveCheckTimer = timer.Every(5f, CheckDungeonsProgress);
+            _entranceCheckTimer = timer.Every(2f, CheckEntranceProximity);
+        }
+
+        private void Unload()
+        {
+            _eventTimer?.Destroy();
+            _waveCheckTimer?.Destroy();
+            _entranceCheckTimer?.Destroy();
+
+            foreach (var dungeon in _activeDungeons)
+                StopDungeon(dungeon);
+            _activeDungeons.Clear();
+
+            CleanupGlobalEntrance();
         }
 
         [ChatCommand("dungeon")]
@@ -163,14 +198,54 @@ namespace Oxide.Plugins
             if (type == DungeonType.Global)
             {
                 var entrance = GetRandomLocation();
-                _activeEventDome = GameManager.server.CreateEntity("assets/prefabs/monuments/sphere_tank/sphere_tank.prefab", entrance);
-                _activeEventDome.Spawn();
+                _globalEntrancePos = entrance;
+                _globalDungeon = dungeon;
+
+                // Spawn 3 overlapping dome spheres for better visibility / opacity
+                for (int i = 0; i < 3; i++)
+                {
+                    var dome = GameManager.server.CreateEntity("assets/prefabs/visualization/sphere.prefab", entrance) as SphereEntity;
+                    if (dome != null)
+                    {
+                        dome.currentRadius = _config.DomeRadius - (i * 2); // Slightly different sizes
+                        dome.lerpRadius = _config.DomeRadius - (i * 2);
+                        dome.Spawn();
+                        _activeEventDomes.Add(dome);
+                        dungeon.Entities.Add(dome);
+                    }
+                }
+
+                // Spawn a map marker so players can find the event
+                _activeMapMarker = GameManager.server.CreateEntity("assets/prefabs/tools/map/genericradiusmarker.prefab", entrance) as MapMarkerGenericRadius;
+                if (_activeMapMarker != null)
+                {
+                    _activeMapMarker.alpha = 0.8f;
+                    _activeMapMarker.color1 = new Color(1f, 0.1f, 0.1f, 1f); // Bright red
+                    _activeMapMarker.color2 = new Color(0.3f, 0f, 0f, 0.5f);
+                    _activeMapMarker.radius = 0.2f;
+                    _activeMapMarker.Spawn();
+                    _activeMapMarker.SendUpdate();
+                    dungeon.Entities.Add(_activeMapMarker);
+                }
+
+                // Spawn a fire pit as a visible ground marker
+                var fire = GameManager.server.CreateEntity("assets/prefabs/deployable/campfire/campfire.prefab", entrance);
+                if (fire != null)
+                {
+                    fire.Spawn();
+                    fire.SetFlag(BaseEntity.Flags.On, true); // Light it up
+                    dungeon.Entities.Add(fire);
+                }
+
+                // Spawn a large sign to label the entrance
+                var sign = GameManager.server.CreateEntity("assets/prefabs/deployable/signs/sign.post.double.prefab", entrance + new Vector3(2, 0, 0));
+                if (sign != null)
+                {
+                    sign.Spawn();
+                    dungeon.Entities.Add(sign);
+                }
                 
-                var portal = GameManager.server.CreateEntity("assets/prefabs/misc/portal/portal.prefab", entrance + new Vector3(0, 1, 10));
-                portal.Spawn();
-                dungeon.Entities.Add(portal);
-                
-                PrintToChat("<color=#FF6B6B>GLOBAL RAID EVENT STARTED!</color> A dungeon has appeared at the Sphere Tank!");
+                PrintToChat($"<color=#FF6B6B>⚔ GLOBAL RAID EVENT STARTED! ⚔</color>\nA dungeon entrance has appeared at <color=yellow>{GetGrid(entrance)}</color>! Check your map for a <color=#FF4444>red marker</color>.\n<color=#AAAAAA>Walk into the dome to enter the dungeon.</color>");
             }
 
             BuildDungeon(dungeon);
@@ -193,11 +268,12 @@ namespace Oxide.Plugins
         {
              // Spawn Arena
              float size = 20f;
+             int floorCount = 0;
              for (float x = -size; x <= size; x += 4f)
              {
                  for (float z = -size; z <= size; z += 4f)
                  {
-                     var floor = GameManager.server.CreateEntity("assets/prefabs/building/floor/floor.prefab", dungeon.Position + new Vector3(x, 0, z));
+                     var floor = GameManager.server.CreateEntity(_config.FloorPrefab, dungeon.Position + new Vector3(x, 0, z));
                      if (floor != null)
                      {
                          var block = floor as BuildingBlock;
@@ -208,30 +284,64 @@ namespace Oxide.Plugins
                          }
                          floor.Spawn();
                          dungeon.Entities.Add(floor);
+                         floorCount++;
                      }
                  }
+             }
+
+             if (floorCount == 0)
+             {
+                 PrintWarning("[NWG Raid Dungeons] No floor tiles spawned — check config FloorPrefab path.");
              }
 
              SpawnWave(dungeon, 1);
 
              var turret = GameManager.server.CreateEntity(_config.TurretPrefab, dungeon.Position + new Vector3(10, 0, 10)) as AutoTurret;
-             turret.Spawn();
-             dungeon.Entities.Add(turret);
+             if (turret != null)
+             {
+                 turret.Spawn();
+                 dungeon.Entities.Add(turret);
+             }
+             else
+             {
+                 PrintWarning("[NWG Raid Dungeons] Failed to spawn turret — check config TurretPrefab.");
+             }
 
              var crate = GameManager.server.CreateEntity(_config.CratePrefab, dungeon.Position) as HackableLockedCrate;
-             crate.Spawn();
-             dungeon.Entities.Add(crate);
+             if (crate != null)
+             {
+                 crate.Spawn();
+                 dungeon.Entities.Add(crate);
+             }
+             else
+             {
+                 PrintWarning("[NWG Raid Dungeons] Failed to spawn reward crate — check config CratePrefab.");
+             }
         }
 
         private void SpawnWave(ActiveDungeon dungeon, int wave)
         {
             int count = 4 + (wave * 2);
+            int spawned = 0;
             for(int i=0; i<count; i++)
             {
                 var scientist = GameManager.server.CreateEntity(_config.ScientistPrefab, dungeon.Position + new Vector3(UnityEngine.Random.Range(-10, 10), 0.5f, UnityEngine.Random.Range(-10, 10))) as ScientistNPC;
-                scientist.Spawn();
-                dungeon.Npcs.Add(scientist);
-                dungeon.Entities.Add(scientist);
+                if (scientist != null)
+                {
+                    scientist.Spawn();
+                    dungeon.Npcs.Add(scientist);
+                    dungeon.Entities.Add(scientist);
+                    spawned++;
+                }
+            }
+
+            if (spawned == 0)
+            {
+                PrintWarning($"[NWG Raid Dungeons] Wave {wave}: No NPCs spawned — check config ScientistPrefab path.");
+            }
+            else
+            {
+                Puts($"[NWG Raid Dungeons] Wave {wave}: Spawned {spawned}/{count} NPCs.");
             }
         }
 
@@ -253,7 +363,12 @@ namespace Oxide.Plugins
         {
             if (dungeon.Npcs.Any(n => (n as BasePlayer)?.displayName == "DUNGEON OVERSEER")) return;
             
-            var boss = GameManager.server.CreateEntity("assets/prefabs/npc/m249_scientist/scientist.m249.prefab", dungeon.Position) as ScientistNPC;
+            var boss = GameManager.server.CreateEntity(_config.BossPrefab, dungeon.Position) as ScientistNPC;
+            if (boss == null)
+            {
+                PrintWarning("[NWG Raid Dungeons] Failed to spawn boss — check config BossPrefab path.");
+                return;
+            }
             boss.displayName = "DUNGEON OVERSEER";
             boss.Spawn();
             dungeon.Npcs.Add(boss);
@@ -264,7 +379,39 @@ namespace Oxide.Plugins
         {
             foreach (var d in _activeDungeons) StopDungeon(d);
             _activeDungeons.Clear();
-            if (_activeEventDome != null) _activeEventDome.Kill();
+            CleanupGlobalEntrance();
+        }
+
+        private void CleanupGlobalEntrance()
+        {
+            foreach (var dome in _activeEventDomes)
+            {
+                if (dome != null && !dome.IsDestroyed) dome.Kill();
+            }
+            _activeEventDomes.Clear();
+
+            if (_activeMapMarker != null && !_activeMapMarker.IsDestroyed)
+                _activeMapMarker.Kill();
+            _activeMapMarker = null;
+
+            _globalEntrancePos = Vector3.zero;
+            _globalDungeon = null;
+        }
+
+        private void CheckEntranceProximity()
+        {
+            if (_globalDungeon == null || _globalEntrancePos == Vector3.zero) return;
+
+            foreach (var player in BasePlayer.activePlayerList)
+            {
+                if (player == null || player.IsDead() || !player.IsConnected) continue;
+                if (Vector3.Distance(player.transform.position, _globalEntrancePos) <= _config.EntranceTeleportRadius)
+                {
+                    // Teleport player into the dungeon
+                    player.Teleport(_globalDungeon.Position + new Vector3(0, 2, 0));
+                    player.ChatMessage("<color=#FF6B6B>⚔ You have entered the RAID DUNGEON! ⚔</color>\n<color=#AAAAAA>Defeat all waves and the Overseer to claim the loot!</color>");
+                }
+            }
         }
 
         private void StopDungeon(ActiveDungeon dungeon)
@@ -298,3 +445,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

@@ -10,7 +10,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Entities", "NWG Team", "1.0.0")]
+    [Info("NWGEntities", "NWG Team", "1.0.0")]
     [Description("Manages Entity Spawning and Player Death Restoration.")]
     public class NWGEntities : RustPlugin
     {
@@ -297,3 +297,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

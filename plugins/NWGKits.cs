@@ -9,7 +9,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Kits", "NWG Team", "1.0.0")]
+    [Info("NWGKits", "NWG Team", "1.0.0")]
     [Description("Simple and efficient kit system.")]
     public class NWGKits : RustPlugin
     {
@@ -180,3 +180,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

@@ -11,7 +11,7 @@ using Rust;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Tools", "NWG Team", "1.0.0")]
+    [Info("NWGTools", "NWG Team", "1.0.0")]
     [Description("Unified Admin Tools, Code Sync, and Group Management.")]
     public class NWGTools : RustPlugin
     {
@@ -361,3 +361,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Info", "NWG Team", "1.0.0")]
+    [Info("NWGInfo", "NWG Team", "1.0.0")]
     [Description("Unified Server Info UI and Map Marker Manager.")]
     public class NWGInfo : RustPlugin
     {
@@ -342,3 +342,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

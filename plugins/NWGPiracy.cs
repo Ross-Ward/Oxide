@@ -1,4 +1,4 @@
-// Forced Recompile: 2026-02-07 11:15
+// Forced Recompile: 2026-02-12 01:38
 using System;
 using System.Collections.Generic;
 using Oxide.Core;
@@ -9,11 +9,12 @@ using System.Linq;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Piracy", "NWG Team", "1.0.0")]
-    [Description("High-seas piracy features: Tugboat Raiders and Deep Sea Salvage.")]
+    [Info("NWGPiracy", "NWG Team", "1.1.0")]
+    [Description("High-seas piracy features: Tugboat Raiders and Deep Sea Salvage with map markers.")]
     public class NWGPiracy : RustPlugin
     {
         private List<BaseEntity> _activePirateEntities = new List<BaseEntity>();
+        private List<MapMarkerGenericRadius> _activeMarkers = new List<MapMarkerGenericRadius>();
         private Timer _piracyTimer;
 
         #region Lifecycle
@@ -25,15 +26,54 @@ namespace Oxide.Plugins
         private void Unload()
         {
             CleanupPirates();
+            CleanupMarkers();
         }
 
         private void CleanupPirates()
         {
-            foreach (var ent in _activePirateEntities)
+            // Kill in reverse order so children are destroyed before their parents,
+            // avoiding cascading OnParentRemoved crashes on BasePlayer/HumanNPC entities.
+            var list = _activePirateEntities.ToList();
+            list.Reverse();
+            foreach (var ent in list)
             {
-                if (ent != null && !ent.IsDestroyed) ent.Kill();
+                try
+                {
+                    if (ent == null || ent.IsDestroyed) continue;
+                    ent.Kill();
+                }
+                catch (Exception ex)
+                {
+                    PrintWarning($"[NWG Piracy] Error cleaning up entity: {ex.Message}");
+                }
             }
             _activePirateEntities.Clear();
+        }
+
+        private void CleanupMarkers()
+        {
+            foreach (var marker in _activeMarkers)
+            {
+                if (marker != null && !marker.IsDestroyed) marker.Kill();
+            }
+            _activeMarkers.Clear();
+        }
+        #endregion
+
+        #region Map Markers
+        private void SpawnMapMarker(Vector3 pos, Color primary, Color secondary, float radius, string label)
+        {
+            var marker = GameManager.server.CreateEntity("assets/prefabs/tools/map/genericradiusmarker.prefab", pos) as MapMarkerGenericRadius;
+            if (marker == null) return;
+
+            marker.alpha = 0.75f;
+            marker.color1 = primary;
+            marker.color2 = secondary;
+            marker.radius = radius;
+            marker.Spawn();
+            marker.SendUpdate();
+            _activeMarkers.Add(marker);
+            _activePirateEntities.Add(marker); // Also track for global cleanup
         }
         #endregion
 
@@ -49,8 +89,16 @@ namespace Oxide.Plugins
         private void CmdPiracySpawn(BasePlayer player, string cmd, string[] args)
         {
             if (!player.IsAdmin) return;
-            SpawnTugboatRaider();
-            player.ChatMessage("Pirate Tugboat spawned!");
+            if (args.Length > 0 && args[0].ToLower() == "salvage")
+            {
+                SpawnDeepSeaSalvage();
+                player.ChatMessage("Deep Sea Salvage spawned!");
+            }
+            else
+            {
+                SpawnTugboatRaider();
+                player.ChatMessage("Pirate Tugboat spawned!");
+            }
         }
 
         private void SpawnTugboatRaider()
@@ -65,24 +113,30 @@ namespace Oxide.Plugins
             _activePirateEntities.Add(tugboat);
 
             // Add a hackable crate to the deck
-            var crate = GameManager.server.CreateEntity("assets/prefabs/deployable/chinookcrate/codelockedhackablecrate.prefab", tugboat.transform.position + (Vector3.up * 3)) as HackableLockedCrate;
+            var crate = GameManager.server.CreateEntity("assets/prefabs/deployable/chinooklockedcrate/codelockedhackablecrate.prefab", tugboat.transform.position + (Vector3.up * 3)) as HackableLockedCrate;
             if (crate != null)
             {
-                crate.SetParent(tugboat);
                 crate.Spawn();
+                crate.SetParent(tugboat, true, true);
+                _activePirateEntities.Add(crate);
             }
 
             // Spawn some scientists as pirates
             for (int i = 0; i < 3; i++)
             {
-                var pirate = GameManager.server.CreateEntity("assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistfull_heavy.prefab", tugboat.transform.position + Vector3.up) as HumanNPC;
+                var pirate = GameManager.server.CreateEntity("assets/rust.ai/agents/npcplayer/humannpc/scientist/scientistnpc_heavy.prefab", tugboat.transform.position + Vector3.up) as HumanNPC;
                 if (pirate != null)
                 {
-                    pirate.SetParent(tugboat);
                     pirate.Spawn();
+                    pirate.SetParent(tugboat, true, true);
+                    _activePirateEntities.Add(pirate);
                 }
             }
 
+            // Spawn a BLUE map marker for the tugboat raider
+            SpawnMapMarker(pos, new Color(0.2f, 0.4f, 1f, 1f), new Color(0f, 0.1f, 0.4f, 0.5f), 0.12f, "Pirate Tugboat");
+
+            PrintToChat("<color=#4488FF>\u2693 PIRATE TUGBOAT SPOTTED!</color>\nA hostile tugboat with high-value cargo has been spotted at sea!\n<color=#AAAAAA>Check your map for a blue marker.</color>");
             Puts($"[NWG Piracy] A Pirate Tugboat with high-value cargo has been spotted at {pos}!");
         }
 
@@ -91,15 +145,20 @@ namespace Oxide.Plugins
             Vector3 pos = FindOceanPosition();
             if (pos == Vector3.zero) return;
 
+            Vector3 markerPos = pos; // Save surface position for marker
             // Anchor it to the sea floor
             pos.y = TerrainMeta.WaterMap.GetHeight(pos) - 20; // Deepish
 
-            var crate = GameManager.server.CreateEntity("assets/prefabs/deployable/chinookcrate/codelockedhackablecrate.prefab", pos) as HackableLockedCrate;
+            var crate = GameManager.server.CreateEntity("assets/prefabs/deployable/chinooklockedcrate/codelockedhackablecrate.prefab", pos) as HackableLockedCrate;
             if (crate == null) return;
             crate.Spawn();
             _activePirateEntities.Add(crate);
 
-            Puts($"[NWG Piracy] Deep sea salvage detected! Check your maps for signals.");
+            // Spawn a CYAN map marker for deep sea salvage
+            SpawnMapMarker(markerPos, new Color(0f, 0.9f, 0.9f, 1f), new Color(0f, 0.3f, 0.5f, 0.5f), 0.08f, "Deep Sea Salvage");
+
+            PrintToChat("<color=#00DDDD>\u2693 DEEP SEA SALVAGE DETECTED!</color>\nA sunken crate with valuable cargo has been located!\n<color=#AAAAAA>Check your map for a cyan marker. Bring diving gear!</color>");
+            Puts($"[NWG Piracy] Deep sea salvage detected at {markerPos}!");
         }
 
         private Vector3 FindOceanPosition()
@@ -121,3 +180,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

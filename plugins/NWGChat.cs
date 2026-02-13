@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Chat", "NWG Team", "3.0.0")]
+    [Info("NWGChat", "NWG Team", "3.0.0")]
     [Description("Manages Chat Formatting, Titles, and Groups for NWG.")]
     public class NWGChat : RustPlugin
     {
@@ -109,11 +109,17 @@ namespace Oxide.Plugins
         {
             if (string.IsNullOrEmpty(message)) return null;
 
-            // Mute Check
-            if (player.Object is BasePlayer bp)
+            // Ignore commands early — let the game/other plugins handle them
+            if (message.StartsWith("/") || message.StartsWith("!")) return null;
+
+            // Mute Check logic removed temporarily due to API incompatibility
+            /*
+            if (player.IsMuted)
             {
-               // TODO: Fix VoiceMuted check
+                player.Message("<color=red>You are muted and cannot chat.</color>");
+                return true;
             }
+            */
 
             // Update Cache if needed (rare)
             ulong uid = ulong.Parse(player.Id);
@@ -123,9 +129,6 @@ namespace Oxide.Plugins
 
             // Format Logic
             string finalMessage = FormatMessage(group, player, message);
-
-            // Ignore commands
-            if (message.StartsWith("/") || message.StartsWith("!")) return null;
 
             // Broadcast to all
             // We return true to suppress default chat, and send our own
@@ -172,4 +175,5 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+
 

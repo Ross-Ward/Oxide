@@ -12,7 +12,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Admin", "NWG Team", "3.2.0")]
+    [Info("NWGAdmin", "NWG Team", "3.2.0")]
     [Description("Essential Admin Tools: Radar, Vanish, Secure Login, and Moderation.")]
     public class NWGAdmin : RustPlugin
     {
@@ -137,7 +137,7 @@ namespace Oxide.Plugins
             // Security Lock
             if (player.IsAdmin && !_unlockedAdmins.Contains(player.userID))
             {
-                if (command == "login" || command == "setadminpass") return null;
+                if (command == "login" || command == "setadminpass" || command.StartsWith("nwgadmin.")) return null;
                 return false; 
             }
             
@@ -152,11 +152,19 @@ namespace Oxide.Plugins
             var basePlayer = player.Object as BasePlayer;
             if (basePlayer == null) return null;
 
-            // Security Lock
-            if (basePlayer.IsAdmin && !_unlockedAdmins.Contains(basePlayer.userID)) return false;
+            // Security Lock — suppress chat for locked admins
+            if (basePlayer.IsAdmin && !_unlockedAdmins.Contains(basePlayer.userID))
+            {
+                basePlayer.ChatMessage("<color=red>Admin login required before chatting. Use /login <password></color>");
+                return true; // handled — suppress the message
+            }
             
             // Freeze Lock
-            if (_frozenPlayers.Contains(basePlayer.userID)) return false;
+            if (_frozenPlayers.Contains(basePlayer.userID))
+            {
+                basePlayer.ChatMessage("<color=red>You are frozen and cannot chat.</color>");
+                return true;
+            }
 
             // Mute Check
             if (_modData.Mutes.TryGetValue(basePlayer.userID, out float expiry))
@@ -164,7 +172,7 @@ namespace Oxide.Plugins
                 if (UnityEngine.Time.realtimeSinceStartup < expiry)
                 {
                     basePlayer.ChatMessage($"<color=red>You are muted for {Math.Ceiling(expiry - UnityEngine.Time.realtimeSinceStartup)}s.</color>");
-                    return false;
+                    return true;
                 }
                 else
                 {
@@ -173,13 +181,16 @@ namespace Oxide.Plugins
                 }
             }
 
-            return null;
+            return null; // let NWGChat handle normal messages
         }
         
         private void CheckAdminSecurity(BasePlayer player)
         {
             if (!player.IsAdmin) return;
             if (_unlockedAdmins.Contains(player.userID)) return;
+
+            player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
+            player.SendNetworkUpdateImmediate();
 
             if (!_securityData.AdminHashes.ContainsKey(player.userID))
             {
@@ -203,7 +214,8 @@ namespace Oxide.Plugins
             if (!player.IsAdmin) return;
             if (_securityData.AdminHashes.ContainsKey(player.userID)) { SendReply(player, "Password already set. Ask another admin to reset it if needed."); return; }
             if (args.Length == 0) { SendReply(player, "Usage: /setadminpass <password>"); return; }
-            _securityData.AdminHashes[player.userID] = HashPassword(args[0]);
+            string password = string.Join(" ", args);
+            _securityData.AdminHashes[player.userID] = HashPassword(password);
             SaveSecurityData();
             player.Kick("Security Setup Complete. Please Re-Login.");
         }
@@ -212,8 +224,9 @@ namespace Oxide.Plugins
         private void CmdLogin(BasePlayer player, string command, string[] args)
         {
             if (!player.IsAdmin || _unlockedAdmins.Contains(player.userID)) return;
-            if (args.Length == 0 || !_securityData.AdminHashes.TryGetValue(player.userID, out string hash)) { CheckAdminSecurity(player); return; }
-            if (VerifyPassword(args[0], hash))
+            string password = string.Join(" ", args);
+            if (string.IsNullOrEmpty(password) || !_securityData.AdminHashes.TryGetValue(player.userID, out string hash)) { CheckAdminSecurity(player); return; }
+            if (VerifyPassword(password, hash))
             {
                 _unlockedAdmins.Add(player.userID);
                 player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, false);
@@ -273,8 +286,8 @@ namespace Oxide.Plugins
         #endregion
 
         #region New Commands: Moderation
-        [ChatCommand("kick")]
-        private void CmdKick(BasePlayer player, string command, string[] args)
+        // NOTE: /kick chat command registered by NWGTools. This is a helper method.
+        public void CmdKick(BasePlayer player, string command, string[] args)
         {
             if (!IsAdminAuth(player)) return;
             if (args.Length < 1) { SendReply(player, "/kick <player> [reason]"); return; }
@@ -285,8 +298,8 @@ namespace Oxide.Plugins
             PrintToChat($"<color=red>{target.displayName} was kicked: {reason}</color>");
         }
 
-        [ChatCommand("ban")]
-        private void CmdBan(BasePlayer player, string command, string[] args)
+        // NOTE: /ban chat command registered by NWGTools. This is a helper method.
+        public void CmdBan(BasePlayer player, string command, string[] args)
         {
             if (!IsAdminAuth(player)) return;
             if (args.Length < 1) { SendReply(player, "/ban <player> [reason]"); return; }
@@ -313,8 +326,8 @@ namespace Oxide.Plugins
             else SendReply(player, "ID not found in ban list.");
         }
 
-        [ChatCommand("mute")]
-        private void CmdMute(BasePlayer player, string command, string[] args)
+        // NOTE: /mute chat command registered by NWGTools. This is a helper method.
+        public void CmdMute(BasePlayer player, string command, string[] args)
         {
             if (!IsAdminAuth(player)) return;
             if (args.Length < 1) { SendReply(player, "/mute <player> [minutes]"); return; }
@@ -401,8 +414,8 @@ namespace Oxide.Plugins
             SendReply(player, info);
         }
 
-        [ChatCommand("heal")]
-        private void CmdHeal(BasePlayer player, string command, string[] args)
+        // NOTE: /heal chat command registered by NWGTools. This is a helper method.
+        public void CmdHeal(BasePlayer player, string command, string[] args)
         {
             if (!IsAdminAuth(player)) return;
             var target = args.Length > 0 ? FindPlayer(args[0], player) : player;
@@ -418,8 +431,8 @@ namespace Oxide.Plugins
         #endregion
 
         #region New Commands: Teleport & World
-        [ChatCommand("tp")]
-        private void CmdTp(BasePlayer player, string command, string[] args)
+        // NOTE: /tp chat command registered by NWGTransportation. This is a helper method.
+        public void CmdTp(BasePlayer player, string command, string[] args)
         {
             if (!IsAdminAuth(player)) return;
             if (args.Length < 1) { SendReply(player, "/tp <player>"); return; }
@@ -586,12 +599,12 @@ namespace Oxide.Plugins
         #endregion
         
         #region UI
-        private void DisplaySetupUI(BasePlayer player)
+
+        private void DisplayLoginUI(BasePlayer player)
         {
             var elements = new CuiElementContainer();
-            string panelName = "NWG_Sec_Setup";
+            string panelName = "NWG_Sec_Login";
             CuiHelper.DestroyUi(player, panelName);
-            CuiHelper.DestroyUi(player, "NWG_Sec_Login");
 
             elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.98" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
             elements.Add(new CuiLabel { Text = { Text = "SECURITY SETUP REQUIRED", FontSize = 30, Align = TextAnchor.MiddleCenter, Color = "1 0.5 0 1" }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
@@ -599,18 +612,109 @@ namespace Oxide.Plugins
             CuiHelper.AddUi(player, elements);
         }
 
-        private void DisplayLoginUI(BasePlayer player)
+        private void DisplaySetupUI(BasePlayer player)
         {
-             var elements = new CuiElementContainer();
-            string panelName = "NWG_Sec_Login";
+            var elements = new CuiElementContainer();
+            string panelName = "NWG_Sec_Setup";
             CuiHelper.DestroyUi(player, panelName);
+            CuiHelper.DestroyUi(player, "NWG_Sec_Login");
 
             elements.Add(new CuiPanel { Image = { Color = "0 0 0 1" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
              elements.Add(new CuiLabel { Text = { Text = "ADMIN ACCESS LOCKED", FontSize = 35, Align = TextAnchor.MiddleCenter, Color = "1 0 0 1" }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
             elements.Add(new CuiLabel { Text = { Text = "Login Required: /login <password>", FontSize = 18, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
             CuiHelper.AddUi(player, elements);
         }
+        
         private void DestroyUI(BasePlayer player) { CuiHelper.DestroyUi(player, "NWG_Sec_Setup"); CuiHelper.DestroyUi(player, "NWG_Sec_Login"); }
+        
+        // Store temporary input from UI
+        private readonly Dictionary<ulong, string> _tempPasswords = new Dictionary<ulong, string>();
+        
+        [ConsoleCommand("nwgadmin.trylogin")]
+        private void ConsoleTryLogin(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            if (arg.Args == null || arg.Args.Length == 0) return;
+            _tempPasswords[player.userID] = string.Join(" ", arg.Args);
+        }
+        
+        [ConsoleCommand("nwgadmin.submitlogin")]
+        private void ConsoleSubmitLogin(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            if (!player.IsAdmin || _unlockedAdmins.Contains(player.userID)) return;
+            
+            if (!_tempPasswords.TryGetValue(player.userID, out string password))
+            {
+                player.ChatMessage("<color=red>Please enter a password first.</color>");
+                return;
+            }
+            
+            if (!_securityData.AdminHashes.TryGetValue(player.userID, out string hash))
+            {
+                CheckAdminSecurity(player);
+                _tempPasswords.Remove(player.userID);
+                return;
+            }
+            
+            if (VerifyPassword(password, hash))
+            {
+                _unlockedAdmins.Add(player.userID);
+                player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, false);
+                player.SendNetworkUpdateImmediate();
+                DestroyUI(player);
+                _tempPasswords.Remove(player.userID);
+                player.ChatMessage("<color=green>Admin Access Granted.</color>");
+            }
+            else
+            {
+                _tempPasswords.Remove(player.userID);
+                player.ChatMessage("<color=red>Incorrect Password.</color>");
+            }
+        }
+        
+        [ConsoleCommand("nwgadmin.trysetpass")]
+        private void ConsoleTrySetPass(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            if (arg.Args == null || arg.Args.Length == 0) return;
+            _tempPasswords[player.userID] = string.Join(" ", arg.Args);
+        }
+        
+        [ConsoleCommand("nwgadmin.submitsetup")]
+        private void ConsoleSubmitSetup(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            if (!player.IsAdmin) return;
+            if (_securityData.AdminHashes.ContainsKey(player.userID))
+            {
+                player.ChatMessage("Password already set. Ask another admin to reset it if needed.");
+                _tempPasswords.Remove(player.userID);
+                return;
+            }
+            
+            if (!_tempPasswords.TryGetValue(player.userID, out string password))
+            {
+                player.ChatMessage("<color=red>Please enter a password first.</color>");
+                return;
+            }
+            
+            if (password.Length < 4)
+            {
+                player.ChatMessage("<color=red>Password must be at least 4 characters.</color>");
+                _tempPasswords.Remove(player.userID);
+                return;
+            }
+            
+            _securityData.AdminHashes[player.userID] = HashPassword(password);
+            SaveSecurityData();
+            _tempPasswords.Remove(player.userID);
+            player.Kick("Security Setup Complete. Please Re-Login.");
+        }
         #endregion
 
         #region Vanish/Radar Logic (Simplified for length)
@@ -639,8 +743,9 @@ namespace Oxide.Plugins
 
         private object OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
         {
-            if (entity is BasePlayer victim && ( _godPlayers.Contains(victim.userID) || (_config.VanishNoDamage && _vanishedPlayers.Contains(victim.userID)) )) return true; 
-            if (info?.Initiator is BasePlayer attacker && _vanishedPlayers.Contains(attacker.userID) && _config.VanishNoDamage) return true; 
+            // Return false (not true) to cancel damage — aligns with NWGCombat's convention and avoids Oxide hook conflicts
+            if (entity is BasePlayer victim && ( _godPlayers.Contains(victim.userID) || (_config.VanishNoDamage && _vanishedPlayers.Contains(victim.userID)) )) return false; 
+            if (info?.Initiator is BasePlayer attacker && _vanishedPlayers.Contains(attacker.userID) && _config.VanishNoDamage) return false; 
             return null;
         }
 
@@ -731,3 +836,4 @@ namespace Oxide.Plugins
         #endregion
     }
 }
+

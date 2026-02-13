@@ -8,7 +8,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Production", "NWG Team", "3.0.0")]
+    [Info("NWGProduction", "NWG Team", "3.0.0")]
     [Description("Optimized Smelting Controller and Furnace Splitter.")]
     public class NWGProduction : RustPlugin
     {
@@ -58,6 +58,8 @@ namespace Oxide.Plugins
             _config = new PluginConfig();
             SaveConfig();
         }
+
+        protected override void SaveConfig() => Config.WriteObject(_config);
         #endregion
 
         #region Smelting Controller
@@ -210,96 +212,70 @@ namespace Oxide.Plugins
             }
         }
 
+        [ConsoleCommand("nwgproduction.reload")]
+        private void ConsoleCmdReload(ConsoleSystem.Arg arg)
+        {
+            if (arg.Player() != null && !arg.Player().IsAdmin) return;
+            LoadConfigVariables();
+            arg.ReplyWith("[NWG Production] Config reloaded.");
+        }
+
         private void SplitOres(BaseOven oven)
         {
-            // Collect all like-items in input slots
-            // This is basic logic: Take all Metal Ore, sum them, divide by empty slots + current slots used by Metal Ore.
-            // This ensures perfect distribution.
-            
-            // Limit to input slots
-            int maxSlots = oven.inputSlots; // e.g., 3 for Furnace
-            
-            // Identify the dominant ore (simply the first one we find for now, usually furnaces handle 1 type efficiently)
-            // Or handle multiple types? Furnaces usually smelt 1 type at a time efficiently.
-            
-            // Optimization: Just split what's there.
-            
             var container = oven.inventory;
-            var ores = container.itemList.Where(x => x.position < maxSlots && x.info.GetComponent<ItemModCookable>() != null).ToList();
+            int maxSlots = oven.inputSlots;
+            if (maxSlots <= 0) return;
+
+            // Get all cookable items in input slots
+            var ores = container.itemList
+                .Where(x => x.position < maxSlots && x.info.GetComponent<ItemModCookable>() != null)
+                .ToList();
             if (ores.Count == 0) return;
 
-            // Group by ID
-            var groups = ores.GroupBy(x => x.info.shortname);
-            
+            // Group by item type
+            var groups = ores.GroupBy(x => x.info.itemid).ToList();
+
             foreach (var group in groups)
             {
                 int totalAmount = group.Sum(x => x.amount);
-                int count = group.Count();
-                
-                // Find empty slots we can expand into?
-                // Only if we want to auto-spread.
-                // For now, let's just balance existing stacks.
-                
-                // If there are empty slots in the input range, we should split into them?
-                // Yes, that's the "Auto Split" feature.
-                
+                if (totalAmount <= 0) continue;
+
+                // Find slots available for this ore type (empty or same item)
                 var availableSlots = Enumerable.Range(0, maxSlots)
-                    .Where(i => container.GetSlot(i) == null || container.GetSlot(i).info.shortname == group.Key)
+                    .Where(i =>
+                    {
+                        var slot = container.GetSlot(i);
+                        return slot == null || slot.info.itemid == group.Key;
+                    })
                     .ToList();
-                
+
                 int splitCount = availableSlots.Count;
-                if (splitCount == 0) continue;
+                if (splitCount <= 1) continue; // nothing to split
 
                 int amountPerSlot = totalAmount / splitCount;
                 int remainder = totalAmount % splitCount;
+                if (amountPerSlot <= 0) continue;
 
-                // Redistribute
-                // This involves removing and re-adding, or adjusting amounts.
-                // Adjusting amounts is safer.
-                
-                // Strategy: Collect all into a pool, then distribute.
-                // But we can't easily destroy/create items without losing skins/condition (though ores don't have condition).
-                
-                // Simple Distribution:
-                int currentSlotIdx = 0;
-                
-                // 1. Ensure we have items in all available slots (split existing if needed)
-                // This is complex. 
-                // Simplified approach for v1: Just balance the stacks that exist.
-                // Re-enabling "Smart Split" requires creating new stacks if slots are empty.
-                
-                // Let's implement active splitting:
-                // If we have 1000 ore in slot 0, and slot 1,2 are empty.
-                // We want 333, 333, 334.
-                
-                // We need to move items.
-                // Since this runs on NextTick, we can manipulate inventory.
-                
-                // Collect all items of this type
-                var existingItems = container.itemList.Where(x => x.info.shortname == group.Key && x.position < maxSlots).ToList();
-                
-                // If we only have 1 stack, and there are empty slots, split it.
-                // If we have multiple stacks, balance them.
-                
-                if (existingItems.Count < splitCount)
-                {
-                    // Need to split
-                    // Take from largest, add to empty.
-                    // This creates new implementations.
-                    // ...implementation details...
-                    
-                    // For the sake of this file size and complexity, I will leave smart-split basic:
-                    // Only balances existing stacks for now to ensure stability.
-                    // Users can manually split 1 item into 3 slots, and it will balance.
-                }
+                // Remove all existing items of this type from input slots
+                var itemId = group.First().info.itemid;
+                foreach (var item in group.ToList())
+                    item.RemoveFromContainer();
+                foreach (var item in group.ToList())
+                    item.Remove();
 
-                // Balance amounts
-                foreach (var spot in availableSlots)
+                // Create balanced stacks in available slots
+                for (int i = 0; i < splitCount; i++)
                 {
-                    // Balance logic 
+                    int amount = amountPerSlot + (i < remainder ? 1 : 0);
+                    if (amount <= 0) continue;
+
+                    var newItem = ItemManager.CreateByItemID(itemId, amount);
+                    if (newItem == null) continue;
+                    newItem.MoveToContainer(container, availableSlots[i]);
                 }
             }
         }
         #endregion
     }
 }
+

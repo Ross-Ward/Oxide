@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("NWG Skills", "NWG Team", "1.0.0")]
+    [Info("NWGSkills", "NWG Team", "1.0.0")]
     [Description("Gathering skill trees and blueprint unlocks.")]
     public class NWGSkills : RustPlugin
     {
@@ -24,6 +24,7 @@ namespace Oxide.Plugins
             public float CombatXP = 0;
             public float SurvivalXP = 0;
             public int SkillPoints = 0;
+            public int Level = 1;
             public HashSet<string> UnlockedSkills = new HashSet<string>();
         }
 
@@ -95,12 +96,20 @@ namespace Oxide.Plugins
         private void CheckLeveUp(BasePlayer player, PlayerData data, string label)
         {
             const float XP_PER_POINT = 1000f;
+            bool leveled = false;
 
-            if (data.WoodXP >= XP_PER_POINT) { data.WoodXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
-            if (data.OreXP >= XP_PER_POINT) { data.OreXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
-            if (data.StoneXP >= XP_PER_POINT) { data.StoneXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
-            if (data.CombatXP >= XP_PER_POINT) { data.CombatXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
-            if (data.SurvivalXP >= XP_PER_POINT) { data.SurvivalXP -= XP_PER_POINT; data.SkillPoints++; player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Point in {label}!"); }
+            if (data.WoodXP >= XP_PER_POINT) { data.WoodXP -= XP_PER_POINT; leveled = true; }
+            if (data.StoneXP >= XP_PER_POINT) { data.StoneXP -= XP_PER_POINT; leveled = true; }
+            if (data.OreXP >= XP_PER_POINT) { data.OreXP -= XP_PER_POINT; leveled = true; }
+            if (data.CombatXP >= XP_PER_POINT) { data.CombatXP -= XP_PER_POINT; leveled = true; }
+            if (data.SurvivalXP >= XP_PER_POINT) { data.SurvivalXP -= XP_PER_POINT; leveled = true; }
+
+            if (leveled)
+            {
+                data.SkillPoints++;
+                data.Level++;
+                player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Level! (Level {data.Level}) and +1 Skill Point in {label}!");
+            }
         }
 
         private PlayerData GetPlayerData(ulong uid)
@@ -246,6 +255,10 @@ namespace Oxide.Plugins
             if (id == "unlock.jackhammer") player.blueprints.Unlock(ItemManager.FindItemDefinition("jackhammer"));
             if (id == "unlock.quarry") player.blueprints.Unlock(ItemManager.FindItemDefinition("mining.quarry"));
         }
+
+        [HookMethod("GetLevel")]
+        public int API_GetLevel(ulong uid) => GetPlayerData(uid).Level;
         #endregion
     }
 }
+
