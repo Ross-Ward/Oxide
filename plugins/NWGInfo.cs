@@ -1,6 +1,8 @@
 // Forced Recompile: 2026-02-07 11:15
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Oxide.Core;
 using Oxide.Core.Plugins;
 using Oxide.Plugins;
@@ -11,7 +13,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("NWGInfo", "NWG Team", "1.0.0")]
+    [Info("NWG Info", "NWG Team", "1.0.0")]
     [Description("Unified Server Info UI and Map Marker Manager.")]
     public class NWGInfo : RustPlugin
     {
@@ -41,6 +43,13 @@ namespace Oxide.Plugins
         }
 
         private PluginConfig _config;
+
+        // Scroll state per player (reset on tab change or close)
+        private readonly Dictionary<ulong, float> _playerScroll = new Dictionary<ulong, float>();
+        private readonly Dictionary<ulong, int> _playerTabIndex = new Dictionary<ulong, int>();
+        private const float ScrollStep = 0.2f;   // viewport units per click
+        private const float LineHeight = 0.052f; // used for scroll range
+        private const int LinesPerPage = 18;      // only this many lines rendered at once so content never overflows
         #endregion
 
         #region Lifecycle
@@ -163,6 +172,128 @@ namespace Oxide.Plugins
         }
         #endregion
 
+        #region Command Scraping
+        // Commands that appear in the Admin tab (all others go to Player Commands)
+        private static readonly HashSet<string> AdminCommandNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "setadminpass", "login", "vanish", "radar", "god", "kick", "ban", "unban", "mute", "unmute",
+            "freeze", "unfreeze", "strip", "whois", "heal", "tp", "tphere", "up", "repair", "entkill",
+            "settime", "setweather", "spawnhere", "rocket", "cmdlist", "testall", "tasks",
+            "adminduty", "tools", "grantvip", "revokevip", "bring", "invsee",
+            "startraid", "spawnpiracy", "startrace", "setbalance", "givemoney", "setwarp", "remove", "dungeon", "adminhelp"
+        };
+
+        private struct ScrapedCommand { public string Command; public string PluginName; }
+
+        private List<ScrapedCommand> GetAllPluginChatCommands()
+        {
+            var list = new List<ScrapedCommand>();
+            try
+            {
+                var plugins = Interface.Oxide.RootPluginManager.GetPlugins();
+                if (plugins == null) return list;
+                foreach (var plugin in plugins)
+                {
+                    if (plugin == null || !plugin.IsLoaded) continue;
+                    var type = plugin.GetType();
+                    if (type == null) continue;
+                    string pluginName = plugin.Name ?? type.Name;
+                    var methods = type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                    if (methods == null) continue;
+                    foreach (var method in methods)
+                    {
+                        var attr = method.GetCustomAttributes(typeof(ChatCommandAttribute), true).FirstOrDefault() as ChatCommandAttribute;
+                        if (attr != null && !string.IsNullOrEmpty(attr.Command))
+                            list.Add(new ScrapedCommand { Command = attr.Command.Trim().ToLower(), PluginName = pluginName });
+                    }
+                }
+                return list.GroupBy(x => x.Command).Select(g => g.First()).OrderBy(x => x.Command).ToList();
+            }
+            catch (Exception ex) { Puts($"NWGInfo command scrape error: {ex.Message}"); }
+            return list;
+        }
+
+        private List<string> GetPlayerCommandLines()
+        {
+            const string color = "#b7d092";
+            var lines = new List<string>();
+            foreach (var c in GetAllPluginChatCommands())
+            {
+                if (AdminCommandNames.Contains(c.Command)) continue;
+                lines.Add($"<color={color}>/{c.Command}</color> - {GetCommandDescription(c.Command, c.PluginName, false)}");
+            }
+            return lines.Count > 0 ? lines : new List<string> { "<color=#b7d092>(No player commands loaded)</color>" };
+        }
+
+        private List<string> GetAdminCommandLines()
+        {
+            const string color = "#FF6B6B";
+            var lines = new List<string>();
+            foreach (var c in GetAllPluginChatCommands())
+            {
+                if (!AdminCommandNames.Contains(c.Command)) continue;
+                lines.Add($"<color={color}>/{c.Command}</color> - {GetCommandDescription(c.Command, c.PluginName, true)}");
+            }
+            return lines.Count > 0 ? lines : new List<string> { "<color=#FF6B6B>(No admin commands loaded)</color>" };
+        }
+
+        private static string GetCommandDescription(string command, string pluginName, bool admin)
+        {
+            var desc = GetKnownDescription(command);
+            return !string.IsNullOrEmpty(desc) ? desc : (admin ? "Admin" : pluginName);
+        }
+
+        private static string GetKnownDescription(string command)
+        {
+            switch (command.ToLowerInvariant())
+            {
+                case "info": return "Show this information menu";
+                case "help": return "Show commands tab";
+                case "shop": return "Open the economics store";
+                case "balance": return "Check your wallet";
+                case "kit": return "Claim a starting or reward kit";
+                case "skin": return "Change item skins (hold item)";
+                case "sethome": return "Set your current position as a home";
+                case "home": return "Teleport to your home";
+                case "tpr": return "Send a teleport request to a player";
+                case "tpa": return "Accept a pending teleport request";
+                case "warp": return "Teleport to a server location";
+                case "setautocode": return "Set your automatic lock code";
+                case "clan": return "Clan management";
+                case "quests": return "View and manage quests";
+                case "skills": return "View and upgrade skills";
+                case "rates": return "View gather and XP rates";
+                case "event": return "Event information";
+                case "zone": return "Zone information";
+                case "tools": return "Open admin tool menu";
+                case "setadminpass": return "Secure your admin session";
+                case "adminduty": return "Toggle Admin Duty";
+                case "setbalance": return "Set player balance";
+                case "givemoney": return "Give money to player";
+                case "settime": return "Set server time (0-24)";
+                case "setweather": return "Set server weather";
+                case "dungeon": return "Dungeon events (e.g. start global)";
+                case "startraid": return "Start Base Raid Event";
+                case "spawnpiracy": return "Spawn Pirate Tugboat";
+                case "startrace": return "Start Racing Event";
+                case "tp": return "Teleport to player";
+                case "god": return "Toggle god mode";
+                case "vanish": return "Toggle invisibility";
+                case "kick": return "Kick a player";
+                case "ban": return "Ban a player";
+                case "unban": return "Unban a player";
+                case "mute": return "Mute a player";
+                case "unmute": return "Unmute a player";
+                case "bring": return "Bring a player to you";
+                case "heal": return "Heal a player";
+                case "invsee": return "View player inventory";
+                case "remove": return "Remove building (admin)";
+                case "setwarp": return "Create a warp point";
+                default: return null;
+            }
+        }
+        #endregion
+
         #region Info UI
         [ChatCommand("info")]
         private void CmdInfo(BasePlayer player)
@@ -193,7 +324,12 @@ namespace Oxide.Plugins
         private void ConsoleClose(ConsoleSystem.Arg arg)
         {
             var player = arg.Player();
-            if (player != null) CuiHelper.DestroyUi(player, "NWG_Info_UI");
+            if (player != null)
+            {
+                CuiHelper.DestroyUi(player, "NWG_Info_UI");
+                _playerScroll.Remove(player.userID);
+                _playerTabIndex.Remove(player.userID);
+            }
         }
 
         [ConsoleCommand("nwg_info.tab")]
@@ -205,10 +341,42 @@ namespace Oxide.Plugins
             ShowInfoUI(player, index);
         }
 
+        [ConsoleCommand("nwg_info.scroll")]
+        private void ConsoleScroll(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            int direction = arg.GetInt(0); // 1 = scroll down (see more below), -1 = scroll up
+            if (direction == 0) return;
+            if (!_playerTabIndex.TryGetValue(player.userID, out int tabIndex)) return;
+            int lineCount = GetContentLineCountForTab(tabIndex);
+            float maxScroll = Math.Max(0f, (lineCount - LinesPerPage) * LineHeight);
+            float scroll = _playerScroll.TryGetValue(player.userID, out float s) ? s : 0f;
+            scroll += direction * ScrollStep;
+            scroll = Math.Max(0f, Math.Min(scroll, maxScroll));
+            _playerScroll[player.userID] = scroll;
+            ShowInfoUI(player, tabIndex);
+        }
+
+        private int GetContentLineCountForTab(int tabIndex)
+        {
+            if (tabIndex < 0 || tabIndex >= _config.Tabs.Count) return 0;
+            var tab = _config.Tabs[tabIndex];
+            if (tab.Name != null && tab.Name.Equals("Commands", StringComparison.OrdinalIgnoreCase))
+                return GetPlayerCommandLines().Count;
+            if (tab.Name != null && tab.Name.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                return GetAdminCommandLines().Count;
+            return (tab.Lines ?? new List<string>()).Count;
+        }
+
         private void ShowInfoUI(BasePlayer player, int tabIndex = 0)
         {
             CuiHelper.DestroyUi(player, "NWG_Info_UI");
-            
+
+            if (_playerTabIndex.TryGetValue(player.userID, out int prevTab) && prevTab != tabIndex)
+                _playerScroll.Remove(player.userID);
+            _playerTabIndex[player.userID] = tabIndex;
+
             var elements = new CuiElementContainer();
             var root = elements.Add(new CuiPanel {
                 Image = { Color = "0.05 0.05 0.05 0.95" },
@@ -265,7 +433,14 @@ namespace Oxide.Plugins
             if (tabIndex >= 0 && tabIndex < _config.Tabs.Count)
             {
                 var tab = _config.Tabs[tabIndex];
-                
+                List<string> contentLines;
+                if (tab.Name != null && tab.Name.Equals("Commands", StringComparison.OrdinalIgnoreCase))
+                    contentLines = GetPlayerCommandLines();
+                else if (tab.Name != null && tab.Name.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                    contentLines = GetAdminCommandLines();
+                else
+                    contentLines = tab.Lines ?? new List<string>();
+
                 var contentPanel = elements.Add(new CuiPanel {
                     Image = { Color = "0.15 0.15 0.15 0.8" },
                     RectTransform = { AnchorMin = "0.22 0.05", AnchorMax = "0.98 0.88" }
@@ -276,11 +451,47 @@ namespace Oxide.Plugins
                     RectTransform = { AnchorMin = "0 0.9", AnchorMax = "1 1" }
                 }, contentPanel);
 
-                string fullText = string.Join("\n", tab.Lines);
+                int lineCount = contentLines.Count > 0 ? contentLines.Count : 1;
+                float maxScroll = Math.Max(0f, (lineCount - LinesPerPage) * LineHeight);
+                float scroll = _playerScroll.TryGetValue(player.userID, out float s) ? Math.Max(0f, Math.Min(s, maxScroll)) : 0f;
+                _playerScroll[player.userID] = scroll;
+
+                // Only render visible lines so content stays inside the UI (no overflow)
+                int startIndex = (int)(scroll / LineHeight);
+                if (startIndex > lineCount - LinesPerPage) startIndex = Math.Max(0, lineCount - LinesPerPage);
+                int endIndex = Math.Min(startIndex + LinesPerPage, lineCount);
+                var visibleLines = new List<string>();
+                for (int i = startIndex; i < endIndex; i++) visibleLines.Add(contentLines[i]);
+                string fullText = visibleLines.Count > 0 ? string.Join("\n", visibleLines) : "";
+
+                var viewport = elements.Add(new CuiPanel {
+                    Image = { Color = "0 0 0 0" },
+                    RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.92 0.88" }
+                }, contentPanel);
+
+                var scrollContent = elements.Add(new CuiPanel {
+                    Image = { Color = "0 0 0 0" },
+                    RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
+                }, viewport);
+
                 elements.Add(new CuiLabel {
                     Text = { Text = fullText, FontSize = 16, Align = TextAnchor.UpperLeft, Font = "robotocondensed-regular.ttf" },
-                    RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.88" }
-                }, contentPanel);
+                    RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }
+                }, scrollContent);
+
+                if (maxScroll > 0.001f)
+                {
+                    elements.Add(new CuiButton {
+                        Button = { Command = "nwg_info.scroll -1", Color = "0.25 0.25 0.25 0.9" },
+                        RectTransform = { AnchorMin = "0.93 0.75", AnchorMax = "0.98 0.88" },
+                        Text = { Text = "▲", FontSize = 18, Align = TextAnchor.MiddleCenter }
+                    }, contentPanel);
+                    elements.Add(new CuiButton {
+                        Button = { Command = "nwg_info.scroll 1", Color = "0.25 0.25 0.25 0.9" },
+                        RectTransform = { AnchorMin = "0.93 0.05", AnchorMax = "0.98 0.18" },
+                        Text = { Text = "▼", FontSize = 18, Align = TextAnchor.MiddleCenter }
+                    }, contentPanel);
+                }
             }
 
             CuiHelper.AddUi(player, elements);
