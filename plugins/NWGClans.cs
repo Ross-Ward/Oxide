@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -14,47 +14,27 @@ namespace Oxide.Plugins
     [Description("Unified Clan and Kit System.")]
     public class NWGClans : RustPlugin
     {
-        #region References
+#region References
         [PluginReference] private Plugin ImageLibrary;
-        #endregion
+        [PluginReference] private Plugin NWGCore;
+#endregion
 
-        #region Config
+#region Config
         private class PluginConfig
         {
             public int MaxClanMembers = 8;
             public int MaxAlliances = 2;
             public bool UseTagColors = true;
             public string ChatPrefix = "[Clan]";
-            
-            // Kits Config
-            public List<KitDefinition> Kits = new List<KitDefinition>();
-        }
-
-        private class KitDefinition
-        {
-            public string Name;
-            public string Permission;
-            public int Cooldown; // Seconds
-            public int MaxUses;
-            public List<ItemDef> Items = new List<ItemDef>();
-        }
-
-        private class ItemDef
-        {
-            public string ShortName;
-            public int Amount;
-            public ulong SkinId;
-            public string Container; // "inventory", "belt", "wear"
         }
 
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Data
+#region Data
         private class StoredData
         {
             public Dictionary<string, Clan> Clans = new Dictionary<string, Clan>();
-            public Dictionary<ulong, PlayerKitData> PlayerKits = new Dictionary<ulong, PlayerKitData>();
         }
 
         private class Clan
@@ -67,21 +47,10 @@ namespace Oxide.Plugins
             public List<ulong> Invites = new List<ulong>(); // Player IDs
         }
 
-        private class PlayerKitData
-        {
-            public Dictionary<string, KitUsage> Usages = new Dictionary<string, KitUsage>();
-        }
-
-        private class KitUsage
-        {
-            public int Uses;
-            public double LastUsedTime; // RealtimeSinceStartup or Timestamp? Timestamp is safer for restarts.
-        }
-
         private StoredData _data;
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -102,7 +71,7 @@ namespace Oxide.Plugins
             try
             {
                 _config = Config.ReadObject<PluginConfig>();
-                if (_config == null || _config.Kits.Count == 0)
+                if (_config == null)
                 {
                     LoadDefaultConfig();
                 }
@@ -117,13 +86,6 @@ namespace Oxide.Plugins
         {
             Puts("Creating new configuration file for NWG Clans");
             _config = new PluginConfig();
-            _config.Kits.Add(new KitDefinition { 
-                Name = "starter", 
-                Cooldown = 3600, 
-                Items = new List<ItemDef> { 
-                    new ItemDef { ShortName = "stone", Amount = 1000, Container = "inventory" } 
-                } 
-            });
             SaveConfig();
         }
 
@@ -140,10 +102,56 @@ namespace Oxide.Plugins
         private void SaveData()
         {
             Interface.Oxide.DataFileSystem.WriteObject("NWG_Clans", _data);
+            NWGCore?.Call("RegisterAPI", "Clans");
         }
-        #endregion
+#endregion
 
-        #region Clan Logic
+#region Localization
+        public static class Lang
+        {
+            public const string Usage = "Usage";
+            public const string AlreadyInClan = "AlreadyInClan";
+            public const string ClanExists = "ClanExists";
+            public const string Created = "Created";
+            public const string PlayerNotFound = "PlayerNotFound";
+            public const string NotOwner = "NotOwner";
+            public const string ClanFull = "ClanFull";
+            public const string Invited = "Invited";
+            public const string InvitedTo = "InvitedTo";
+            public const string ClanNotFound = "ClanNotFound";
+            public const string NotInvited = "NotInvited";
+            public const string LeaveCurrent = "LeaveCurrent";
+            public const string Joined = "Joined";
+            public const string Disbanded = "Disbanded";
+            public const string Left = "Left";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.Usage] = "<color=#d9534f>[NWG]</color> Usage: /clan create <tag>, /clan join <tag>, /clan leave, /clan invite <player>",
+                [Lang.AlreadyInClan] = "<color=#d9534f>[NWG]</color> You are already in a clan.",
+                [Lang.ClanExists] = "<color=#d9534f>[NWG]</color> Clan tag <color=#FFA500>'{0}'</color> already exists.",
+                [Lang.Created] = "<color=#b7d092>[NWG]</color> Clan <color=#FFA500>{0}</color> created successfully!",
+                [Lang.PlayerNotFound] = "<color=#d9534f>[NWG]</color> Player not found.",
+                [Lang.NotOwner] = "<color=#d9534f>[NWG]</color> You must be the clan owner to do that.",
+                [Lang.ClanFull] = "<color=#d9534f>[NWG]</color> Your clan is full (Max: {0}).",
+                [Lang.Invited] = "<color=#b7d092>[NWG]</color> Invited <color=#FFA500>{0}</color> to your clan.",
+                [Lang.InvitedTo] = "<color=#b7d092>[NWG]</color> You have been invited to clan <color=#FFA500>{0}</color>. Type <color=#FFA500>/clan join {0}</color> to join.",
+                [Lang.ClanNotFound] = "<color=#d9534f>[NWG]</color> Clan <color=#FFA500>'{0}'</color> not found.",
+                [Lang.NotInvited] = "<color=#d9534f>[NWG]</color> You have not been invited to join this clan.",
+                [Lang.LeaveCurrent] = "<color=#d9534f>[NWG]</color> You must leave your current clan first.",
+                [Lang.Joined] = "<color=#b7d092>[NWG]</color> You have joined clan <color=#FFA500>{0}</color>!",
+                [Lang.Disbanded] = "<color=#b7d092>[NWG]</color> Clan disbanded.",
+                [Lang.Left] = "<color=#b7d092>[NWG]</color> You have left the clan."
+            }, this);
+        }
+        
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+#region Clan Logic
         private Clan GetClan(string tag)
         {
             if (_data.Clans.TryGetValue(tag, out var clan)) return clan;
@@ -166,7 +174,7 @@ namespace Oxide.Plugins
         {
             if (args.Length == 0)
             {
-                SendReply(player, "Usage: /clan create <tag>, /clan join <tag>, /clan leave, /clan invite <player>");
+                player.ChatMessage(GetMessage(Lang.Usage, player.UserIDString));
                 return;
             }
 
@@ -174,33 +182,33 @@ namespace Oxide.Plugins
 
             if (action == "create")
             {
-                if (args.Length < 2) { SendReply(player, "Usage: /clan create <tag>"); return; }
+                if (args.Length < 2) { player.ChatMessage(GetMessage(Lang.Usage, player.UserIDString)); return; }
                 string tag = args[1];
                 
-                if (GetPlayerClan(player.userID) != null) { SendReply(player, "You are already in a clan."); return; }
-                if (_data.Clans.ContainsKey(tag)) { SendReply(player, "Clan tag already exists."); return; }
+                if (GetPlayerClan(player.userID) != null) { player.ChatMessage(GetMessage(Lang.AlreadyInClan, player.UserIDString)); return; }
+                if (_data.Clans.ContainsKey(tag)) { player.ChatMessage(GetMessage(Lang.ClanExists, player.UserIDString, tag)); return; }
 
                 var clan = new Clan { Tag = tag, OwnerId = player.userID };
                 clan.Members.Add(player.userID);
                 _data.Clans[tag] = clan;
                 
-                SendReply(player, $"Clan {tag} created!");
+                player.ChatMessage(GetMessage(Lang.Created, player.UserIDString, tag));
                 Interface.CallHook("OnClanCreate", tag);
             }
             else if (action == "invite")
             {
                 if (args.Length < 2) return;
                 var target = BasePlayer.Find(args[1]);
-                if (target == null) { SendReply(player, "Player not found."); return; }
+                if (target == null) { player.ChatMessage(GetMessage(Lang.PlayerNotFound, player.UserIDString)); return; }
 
                 var clan = GetPlayerClan(player.userID);
-                if (clan == null || clan.OwnerId != player.userID) { SendReply(player, "You must be a clan owner."); return; }
+                if (clan == null || clan.OwnerId != player.userID) { player.ChatMessage(GetMessage(Lang.NotOwner, player.UserIDString)); return; }
                 
-                if (clan.Members.Count >= _config.MaxClanMembers) { SendReply(player, "Clan is full."); return; }
+                if (clan.Members.Count >= _config.MaxClanMembers) { player.ChatMessage(GetMessage(Lang.ClanFull, player.UserIDString, _config.MaxClanMembers)); return; }
                 
                 if (!clan.Invites.Contains(target.userID)) clan.Invites.Add(target.userID);
-                SendReply(player, $"Invited {target.displayName}.");
-                SendReply(target, $"You have been invited to clan {clan.Tag}. Type /clan join {clan.Tag} to join.");
+                player.ChatMessage(GetMessage(Lang.Invited, player.UserIDString, target.displayName));
+                target.ChatMessage(GetMessage(Lang.InvitedTo, target.UserIDString, clan.Tag));
             }
             else if (action == "join")
             {
@@ -208,14 +216,14 @@ namespace Oxide.Plugins
                 string tag = args[1];
                 var clan = GetClan(tag);
                 
-                if (clan == null) { SendReply(player, "Clan not found."); return; }
-                if (!clan.Invites.Contains(player.userID)) { SendReply(player, "You are not invited to this clan."); return; }
+                if (clan == null) { player.ChatMessage(GetMessage(Lang.ClanNotFound, player.UserIDString, tag)); return; }
+                if (!clan.Invites.Contains(player.userID)) { player.ChatMessage(GetMessage(Lang.NotInvited, player.UserIDString)); return; }
                 
-                if (GetPlayerClan(player.userID) != null) { SendReply(player, "Leave your current clan first."); return; }
+                if (GetPlayerClan(player.userID) != null) { player.ChatMessage(GetMessage(Lang.LeaveCurrent, player.UserIDString)); return; }
 
                 clan.Invites.Remove(player.userID);
                 clan.Members.Add(player.userID);
-                SendReply(player, $"Joined clan {tag}!");
+                player.ChatMessage(GetMessage(Lang.Joined, player.UserIDString, tag));
             }
             else if (action == "leave")
             {
@@ -226,92 +234,21 @@ namespace Oxide.Plugins
                 {
                     // Disband? Or transfer? For now disband.
                     _data.Clans.Remove(clan.Tag);
-                    SendReply(player, "Clan disbanded.");
+                    player.ChatMessage(GetMessage(Lang.Disbanded, player.UserIDString));
                     Interface.CallHook("OnClanDisband", clan.Tag);
                 }
                 else
                 {
                     clan.Members.Remove(player.userID);
-                    SendReply(player, "Left clan.");
+                    player.ChatMessage(GetMessage(Lang.Left, player.UserIDString));
                 }
             }
         }
-        #endregion
+#endregion
 
-        #region Kit Logic
-        [ChatCommand("kit")]
-        private void CmdKit(BasePlayer player, string command, string[] args)
-        {
-            if (args.Length == 0)
-            {
-                List<string> kitNames = _config.Kits.Select(k => k.Name).ToList();
-                SendReply(player, "Available Kits: " + string.Join(", ", kitNames));
-                return;
-            }
 
-            string kitName = args[0].ToLower();
-            var kit = _config.Kits.FirstOrDefault(k => k.Name.ToLower() == kitName);
-            
-            if (kit == null) { SendReply(player, "Kit not found."); return; }
 
-            // Check Permission
-            if (!string.IsNullOrEmpty(kit.Permission) && !permission.UserHasPermission(player.UserIDString, kit.Permission))
-            {
-                SendReply(player, "No permission.");
-                return;
-            }
-
-            // Check Data
-            if (!_data.PlayerKits.TryGetValue(player.userID, out var pkd))
-            {
-                pkd = new PlayerKitData();
-                _data.PlayerKits[player.userID] = pkd;
-            }
-
-            if (!pkd.Usages.TryGetValue(kitName, out var usage))
-            {
-                usage = new KitUsage();
-                pkd.Usages[kitName] = usage;
-            }
-
-            // Cooldown
-            double now = DateTime.UtcNow.Subtract(new DateTime(1970, 1, 1)).TotalSeconds;
-            if (kit.Cooldown > 0 && (now - usage.LastUsedTime) < kit.Cooldown)
-            {
-                int left = (int)(kit.Cooldown - (now - usage.LastUsedTime));
-                SendReply(player, $"Cooldown: {left}s");
-                return;
-            }
-
-            // Max Uses
-            if (kit.MaxUses > 0 && usage.Uses >= kit.MaxUses)
-            {
-                SendReply(player, "Max uses reached.");
-                return;
-            }
-
-            // Redeem
-            usage.Uses++;
-            usage.LastUsedTime = now;
-            GiveKit(player, kit);
-            SendReply(player, $"Redeemed kit {kitName}.");
-        }
-
-        private void GiveKit(BasePlayer player, KitDefinition kit)
-        {
-            foreach(var itemDef in kit.Items)
-            {
-                var item = ItemManager.CreateByName(itemDef.ShortName, itemDef.Amount, itemDef.SkinId);
-                if (item == null) continue;
-                
-                if (itemDef.Container == "belt") player.GiveItem(item, BaseEntity.GiveItemReason.PickedUp);
-                else if (itemDef.Container == "wear") player.GiveItem(item, BaseEntity.GiveItemReason.PickedUp);
-                else player.GiveItem(item, BaseEntity.GiveItemReason.PickedUp);
-            }
-        }
-        #endregion
-
-        #region Hooks (API for other plugins)
+#region Hooks (API for other plugins)
         [HookMethod("GetClanTag")]
         public string GetClanTag(ulong playerId)
         {
@@ -328,7 +265,7 @@ namespace Oxide.Plugins
              var clan = GetClan(tag);
              return clan != null && clan.Members.Contains(playerId);
         }
-        #endregion
+#endregion
     }
 }
 

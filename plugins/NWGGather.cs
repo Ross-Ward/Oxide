@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -12,11 +12,11 @@ namespace Oxide.Plugins
     [Description("Configurable gather rate controller. Modify rates for mining, pickups, quarries, excavators, surveys, and dispenser types.")]
     public class NWGGather : RustPlugin
     {
-        #region Configuration
+#region Configuration
 
         private class PluginConfig
         {
-            // ── Global Resource Modifiers ──
+            // â”€â”€ Global Resource Modifiers â”€â”€
             // Key: resource display name (e.g. "Wood", "Stones", "Metal Ore")
             // Use "*" as a wildcard to set a default for all unspecified resources
             // These apply to dispenser gathering (hitting trees, rocks, etc.)
@@ -25,7 +25,7 @@ namespace Oxide.Plugins
                 ["*"] = 3.0f  // Default: 3x all resources from dispensers
             };
 
-            // ── Dispenser Type Scale ──
+            // â”€â”€ Dispenser Type Scale â”€â”€
             // Controls how much the *node itself* contains (scales containedItems)
             // Types: "Tree", "Ore", "Flesh" (corpses/animals)
             public Dictionary<string, float> GatherDispenserModifiers = new Dictionary<string, float>
@@ -35,7 +35,7 @@ namespace Oxide.Plugins
                 // ["Flesh"] = 1.0f,
             };
 
-            // ── Pickup Resource Modifiers ──
+            // â”€â”€ Pickup Resource Modifiers â”€â”€
             // Collectible pickups (hemp, ground stones, mushrooms, etc.)
             // Key: resource display name or "*" for wildcard
             public Dictionary<string, float> PickupResourceModifiers = new Dictionary<string, float>
@@ -43,42 +43,42 @@ namespace Oxide.Plugins
                 ["*"] = 3.0f
             };
 
-            // ── Quarry Resource Modifiers ──
+            // â”€â”€ Quarry Resource Modifiers â”€â”€
             // Mining quarry output
             public Dictionary<string, float> QuarryResourceModifiers = new Dictionary<string, float>
             {
                 ["*"] = 3.0f
             };
 
-            // ── Excavator Resource Modifiers ──
+            // â”€â”€ Excavator Resource Modifiers â”€â”€
             // Excavator output
             public Dictionary<string, float> ExcavatorResourceModifiers = new Dictionary<string, float>
             {
                 ["*"] = 3.0f
             };
 
-            // ── Survey Resource Modifiers ──
+            // â”€â”€ Survey Resource Modifiers â”€â”€
             // Survey charge results
             public Dictionary<string, float> SurveyResourceModifiers = new Dictionary<string, float>
             {
                 ["*"] = 1.0f
             };
 
-            // ── Crop/Growable Modifiers ──
+            // â”€â”€ Crop/Growable Modifiers â”€â”€
             // Harvesting planted crops
             public Dictionary<string, float> CropResourceModifiers = new Dictionary<string, float>
             {
                 ["*"] = 2.0f
             };
 
-            // ── Quarry & Excavator Speed ──
+            // â”€â”€ Quarry & Excavator Speed â”€â”€
             // Time in seconds between resource ticks
             public float MiningQuarryResourceTickRate = 5f;    // Vanilla default: 5
             public float ExcavatorResourceTickRate = 3f;       // Vanilla default: 3
             public float ExcavatorTimeForFullResources = 120f; // Vanilla default: 120
             public float ExcavatorBeltSpeedMax = 0.1f;         // Vanilla default: 0.1
 
-            // ── Notifications ──
+            // â”€â”€ Notifications â”€â”€
             public bool ShowGatherNotification = false;
         }
 
@@ -90,9 +90,9 @@ namespace Oxide.Plugins
         private const float DefaultExcavatorTimeForFullResources = 120f;
         private const float DefaultExcavatorBeltSpeedMax = 0.1f;
 
-        #endregion
+#endregion
 
-        #region State
+#region State
 
         // Track notified players to avoid spam
         private readonly HashSet<ulong> _notifiedPlayers = new HashSet<ulong>();
@@ -109,9 +109,9 @@ namespace Oxide.Plugins
             ["flesh"]  = ResourceDispenser.GatherType.Flesh
         };
 
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
 
         private void Init()
         {
@@ -177,10 +177,78 @@ namespace Oxide.Plugins
         }
 
         protected override void SaveConfig() => Config.WriteObject(_config);
+#endregion
 
-        #endregion
+#region Localization
+        public static class Lang
+        {
+            public const string NoPermission = "NoPermission";
+            public const string ConfigReloaded = "ConfigReloaded";
+            public const string RatesHeader = "RatesHeader";
+            public const string RatesSection = "RatesSection";
+            public const string RatesDefault = "RatesDefault";
+            public const string RatesMore = "RatesMore";
+            public const string RatesFooter = "RatesFooter";
+            public const string AdminHelp = "AdminHelp";
+            public const string HelpHeader = "HelpHeader";
+            public const string ValidResources = "ValidResources";
+            public const string ValidDispensers = "ValidDispensers";
+            public const string InvalidType = "InvalidType";
+            public const string InvalidResource = "InvalidResource";
+            public const string InvalidDispenser = "InvalidDispenser";
+            public const string ModifierPositive = "ModifierPositive";
+            public const string RateSet = "RateSet";
+            public const string RateReset = "RateReset";
+            public const string RateNoOverride = "RateNoOverride";
+            public const string TickRateSet = "TickRateSet";
+            public const string TickRateLow = "TickRateLow";
+            public const string Notification = "Notification";
+        }
 
-        #region Gather Hooks
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.NoPermission] = "<color=#d9534f>[NWG]</color> You don't have permission to use this command.",
+                [Lang.ConfigReloaded] = "<color=#b7d092>[NWG]</color> Config reloaded and reapplied.",
+                [Lang.RatesHeader] = "<color=#b7d092>â•â•â• NWG Gather Rates â•â•â•</color>",
+                [Lang.RatesSection] = "\n\n<color=#aaaaaa>{0}:</color>",
+                [Lang.RatesDefault] = "\n  <color=#FFA500>Default:</color> <color=#b7d092>{0}x</color>",
+                [Lang.RatesMore] = "\n  <color=#aaaaaa>... +{0} more</color>",
+                [Lang.RatesFooter] = "\n  <color=#aaaaaa>Tick Rate:</color> <color=#FFA500>{0}s</color>",
+                [Lang.AdminHelp] = "<color=#aaaaaa>Admin Commands:</color>\n" +
+                                   "<color=#FFA500>gather.rate</color> <type> <resource> <multiplier>\n" +
+                                   "<color=#FFA500>dispenser.scale</color> <tree|ore|corpse> <multiplier>",
+                [Lang.HelpHeader] = "<color=#b7d092>â•â•â• NWG Gather Admin â•â•â•</color>\n" +
+                                    "<color=#aaaaaa>Chat Commands:</color>\n" +
+                                    "  <color=#FFA500>/gather</color> â€” Show rates\n" +
+                                    "  <color=#FFA500>/gather resources</color> â€” List valid resources\n" +
+                                    "  <color=#FFA500>/gather reload</color> â€” Reload config\n\n" +
+                                    "<color=#aaaaaa>Console Commands:</color>\n" +
+                                    "  <color=#FFA500>gather.rate <type> <resource> <mult|remove></color>\n" +
+                                    "  <color=#FFA500>quarry.tickrate <seconds></color>",
+                [Lang.ValidResources] = "<color=#b7d092>â•â•â• Valid Resources â•â•â•</color>",
+                [Lang.ValidDispensers] = "<color=#b7d092>â•â•â• Valid Dispensers â•â•â•</color>\n" +
+                                         "  <color=#FFA500>tree</color> â€” Trees\n" +
+                                         "  <color=#FFA500>ore</color> â€” Ore nodes\n" +
+                                         "  <color=#FFA500>corpse</color> â€” Animal corpses",
+                [Lang.InvalidType] = "<color=#d9534f>Invalid type.</color> Use: dispenser, pickup, quarry, excavator, survey, crop",
+                [Lang.InvalidResource] = "<color=#d9534f>'{0}' is not a valid resource.</color>",
+                [Lang.InvalidDispenser] = "<color=#d9534f>'{0}' is not a valid dispenser.</color>",
+                [Lang.ModifierPositive] = "<color=#d9534f>Modifier must be a positive number.</color>",
+                [Lang.RateSet] = "<color=#b7d092>[NWG]</color> Set <color=#FFA500>{0}</color> to <color=#b7d092>x{1}</color> from {2}.",
+                [Lang.RateReset] = "<color=#b7d092>[NWG]</color> Reset <color=#FFA500>{0}</color> rate from {1}.",
+                [Lang.RateNoOverride] = "<color=#d9534f>[NWG]</color> No override found for {0} in {1}.",
+                [Lang.TickRateSet] = "<color=#b7d092>[NWG]</color> <color=#FFA500>{0}</color> tick rate set to {1} seconds.",
+                [Lang.TickRateLow] = "<color=#d9534f>Tick rate can't be lower than 1 second.</color>",
+                [Lang.Notification] = "<color=#b7d092>[NWG]</color> Enhanced gather rates are active! Type <color=#FFA500>/gather</color> to see rates."
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+#region Gather Hooks
 
         /// <summary>
         /// Dispenser gathering (trees, ore nodes, barrels, animals)
@@ -324,9 +392,9 @@ namespace Oxide.Plugins
             quarry.InvokeRepeating("ProcessResources", _config.MiningQuarryResourceTickRate, _config.MiningQuarryResourceTickRate);
         }
 
-        #endregion
+#endregion
 
-        #region Chat Commands
+#region Chat Commands
 
         [ChatCommand("gather")]
         private void CmdGather(BasePlayer player, string command, string[] args)
@@ -340,7 +408,7 @@ namespace Oxide.Plugins
             // Admin-only commands beyond here
             if (!HasPermission(player))
             {
-                player.ChatMessage("<color=#ff4444>[NWG Gather]</color> You don't have permission to use admin commands.");
+                player.ChatMessage(GetMessage(Lang.NoPermission, player.UserIDString));
                 return;
             }
 
@@ -359,7 +427,7 @@ namespace Oxide.Plugins
                     RestoreExcavators();
                     LoadConfigVariables();
                     ApplyExcavators();
-                    player.ChatMessage("<color=#55ff55>[NWG Gather]</color> Config reloaded and reapplied.");
+                    player.ChatMessage(GetMessage(Lang.ConfigReloaded, player.UserIDString));
                     break;
                 default:
                     ShowHelp(player);
@@ -369,74 +437,55 @@ namespace Oxide.Plugins
 
         private void ShowRates(BasePlayer player)
         {
-            string msg = "<color=#55aaff>═══ NWG Gather Rates ═══</color>";
+            string msg = GetMessage(Lang.RatesHeader, player.UserIDString);
 
             // Gather (Dispenser) rates
-            msg += FormatModifierSection("⛏ Dispenser Gathering", _config.GatherResourceModifiers);
+            msg += FormatModifierSection("â› Dispenser Gathering", _config.GatherResourceModifiers, player.UserIDString);
 
             // Dispenser scale
             if (_config.GatherDispenserModifiers.Count > 0)
             {
-                msg += "\n\n<color=#aaaaaa>Dispenser Node Scale:</color>";
+                msg += GetMessage(Lang.RatesSection, player.UserIDString, "Dispenser Node Scale");
                 foreach (var kvp in _config.GatherDispenserModifiers)
-                    msg += $"\n  <color=#ffcc00>{kvp.Key}:</color> <color=#55ff55>{kvp.Value}x</color>";
+                    msg += $"\n  <color=#FFA500>{kvp.Key}:</color> <color=#b7d092>{kvp.Value}x</color>";
             }
 
             // Pickups
-            msg += FormatModifierSection("🌿 Pickups", _config.PickupResourceModifiers);
+            msg += FormatModifierSection("ðŸŒ¿ Pickups", _config.PickupResourceModifiers, player.UserIDString);
 
             // Quarry
-            msg += FormatModifierSection("⚙ Quarry", _config.QuarryResourceModifiers);
+            msg += FormatModifierSection("âš™ Quarry", _config.QuarryResourceModifiers, player.UserIDString);
             if (_config.MiningQuarryResourceTickRate != DefaultMiningQuarryTickRate)
-                msg += $"\n  <color=#aaaaaa>Tick Rate:</color> {_config.MiningQuarryResourceTickRate}s";
+                msg += GetMessage(Lang.RatesFooter, player.UserIDString, _config.MiningQuarryResourceTickRate);
 
             // Excavator
-            msg += FormatModifierSection("🏗 Excavator", _config.ExcavatorResourceModifiers);
+            msg += FormatModifierSection("ðŸ— Excavator", _config.ExcavatorResourceModifiers, player.UserIDString);
             if (_config.ExcavatorResourceTickRate != DefaultExcavatorTickRate)
-                msg += $"\n  <color=#aaaaaa>Tick Rate:</color> {_config.ExcavatorResourceTickRate}s";
+                msg += GetMessage(Lang.RatesFooter, player.UserIDString, _config.ExcavatorResourceTickRate);
 
             // Crops
-            msg += FormatModifierSection("🌾 Crops", _config.CropResourceModifiers);
+            msg += FormatModifierSection("ðŸŒ¾ Crops", _config.CropResourceModifiers, player.UserIDString);
 
             // Survey
-            msg += FormatModifierSection("📋 Survey", _config.SurveyResourceModifiers);
+            msg += FormatModifierSection("ðŸ“‹ Survey", _config.SurveyResourceModifiers, player.UserIDString);
 
             player.ChatMessage(msg);
 
             // Show admin help if admin
             if (HasPermission(player))
             {
-                player.ChatMessage("<color=#aaaaaa>Admin: Use console commands to modify rates.</color>\n" +
-                    "<color=#ffcc00>gather.rate</color> <type> <resource> <multiplier>\n" +
-                    "<color=#ffcc00>dispenser.scale</color> <tree|ore|corpse> <multiplier>\n" +
-                    "<color=#ffcc00>quarry.tickrate</color> <seconds>\n" +
-                    "<color=#ffcc00>excavator.tickrate</color> <seconds>");
+                player.ChatMessage(GetMessage(Lang.AdminHelp, player.UserIDString));
             }
         }
 
         private void ShowHelp(BasePlayer player)
         {
-            string msg = "<color=#55aaff>═══ NWG Gather Admin ═══</color>\n" +
-                         "<color=#aaaaaa>Chat Commands:</color>\n" +
-                         "  <color=#ffcc00>/gather</color> — Show rates (all players)\n" +
-                         "  <color=#ffcc00>/gather resources</color> — List valid resource names\n" +
-                         "  <color=#ffcc00>/gather dispensers</color> — List valid dispenser types\n" +
-                         "  <color=#ffcc00>/gather reload</color> — Reload config\n\n" +
-                         "<color=#aaaaaa>Console Commands:</color>\n" +
-                         "  <color=#ffcc00>gather.rate <type> <resource> <mult|remove></color>\n" +
-                         "    Types: dispenser, pickup, quarry, excavator, survey, crop\n" +
-                         "    Use * for all resources\n" +
-                         "  <color=#ffcc00>dispenser.scale <tree|ore|corpse> <mult></color>\n" +
-                         "  <color=#ffcc00>quarry.tickrate <seconds></color>\n" +
-                         "  <color=#ffcc00>excavator.tickrate <seconds></color>\n" +
-                         "  <color=#ffcc00>gather.resources</color> — List valid resources\n" +
-                         "  <color=#ffcc00>gather.dispensers</color> — List valid dispensers";
-            player.ChatMessage(msg);
+            player.ChatMessage(GetMessage(Lang.HelpHeader, player.UserIDString));
         }
 
         private void CmdListResources(BasePlayer player)
         {
-            string msg = "<color=#55aaff>═══ Valid Resources ═══</color>";
+            string msg = GetMessage(Lang.ValidResources, player.UserIDString);
             int count = 0;
             foreach (var kvp in _validResources.OrderBy(x => x.Key))
             {
@@ -448,21 +497,18 @@ namespace Oxide.Plugins
                     break;
                 }
             }
-            msg += "\n  <color=#ffcc00>*</color> (wildcard — applies to all unspecified resources)";
+            msg += "\n  <color=#FFA500>*</color> (wildcard â€” applies to all unspecified resources)";
             player.ChatMessage(msg);
         }
 
         private void CmdListDispensers(BasePlayer player)
         {
-            player.ChatMessage("<color=#55aaff>═══ Valid Dispensers ═══</color>\n" +
-                "  <color=#ffcc00>tree</color> — Trees\n" +
-                "  <color=#ffcc00>ore</color> — Ore nodes (stone, metal, sulfur)\n" +
-                "  <color=#ffcc00>corpse / flesh</color> — Animal corpses");
+            player.ChatMessage(GetMessage(Lang.ValidDispensers, player.UserIDString));
         }
 
-        #endregion
+#endregion
 
-        #region Console Commands
+#region Console Commands
 
         [ConsoleCommand("gather.rate")]
         private void ConsoleCmdGatherRate(ConsoleSystem.Arg arg)
@@ -552,14 +598,14 @@ namespace Oxide.Plugins
             if (remove)
             {
                 if (dict.Remove(resourceKey))
-                    arg.ReplyWith($"[NWG Gather] Reset {resourceKey} rate from {typeName}.");
+                    arg.ReplyWith(GetMessage(Lang.RateReset, arg.Player()?.UserIDString, resourceKey, typeName));
                 else
-                    arg.ReplyWith($"[NWG Gather] No override found for {resourceKey} in {typeName}.");
+                    arg.ReplyWith(GetMessage(Lang.RateNoOverride, arg.Player()?.UserIDString, resourceKey, typeName));
             }
             else
             {
                 dict[resourceKey] = modifier;
-                arg.ReplyWith($"[NWG Gather] Set {resourceKey} to x{modifier} from {typeName}.");
+                arg.ReplyWith(GetMessage(Lang.RateSet, arg.Player()?.UserIDString, resourceKey, modifier, typeName));
             }
 
             SaveConfig();
@@ -597,7 +643,7 @@ namespace Oxide.Plugins
             var dispenserType = _validDispensers[dispenserInput].ToString("G");
             _config.GatherDispenserModifiers[dispenserType] = modifier;
             SaveConfig();
-            arg.ReplyWith($"[NWG Gather] Set {dispenserType} dispenser scale to x{modifier}.");
+            arg.ReplyWith(GetMessage(Lang.RateSet, arg.Player()?.UserIDString, dispenserType, modifier, "Dispenser Scale"));
         }
 
         [ConsoleCommand("quarry.tickrate")]
@@ -632,7 +678,7 @@ namespace Oxide.Plugins
                 quarry.InvokeRepeating("ProcessResources", rate, rate);
             }
 
-            arg.ReplyWith($"[NWG Gather] Mining Quarry tick rate set to {rate} seconds.");
+            arg.ReplyWith(GetMessage(Lang.TickRateSet, arg.Player()?.UserIDString, "Mining Quarry", rate));
         }
 
         [ConsoleCommand("excavator.tickrate")]
@@ -667,7 +713,7 @@ namespace Oxide.Plugins
                 excavator.InvokeRepeating("ProcessResources", rate, rate);
             }
 
-            arg.ReplyWith($"[NWG Gather] Excavator tick rate set to {rate} seconds.");
+            arg.ReplyWith(GetMessage(Lang.TickRateSet, arg.Player()?.UserIDString, "Excavator", rate));
         }
 
         [ConsoleCommand("gather.rates")]
@@ -703,7 +749,7 @@ namespace Oxide.Plugins
 
             string msg = "Available resources:\n";
             msg = _validResources.OrderBy(x => x.Key).Aggregate(msg, (current, kvp) => current + kvp.Value.displayName.english + "\n");
-            msg += "* (wildcard — all resources not set individually)";
+            msg += "* (wildcard â€” all resources not set individually)";
             arg.ReplyWith(msg);
         }
 
@@ -716,7 +762,7 @@ namespace Oxide.Plugins
                 return;
             }
 
-            arg.ReplyWith("Available dispensers:\n  tree — Trees\n  ore — Ore nodes\n  corpse / flesh — Animal corpses");
+            arg.ReplyWith("Available dispensers:\n  tree â€” Trees\n  ore â€” Ore nodes\n  corpse / flesh â€” Animal corpses");
         }
 
         [ConsoleCommand("nwggather.reload")]
@@ -726,12 +772,12 @@ namespace Oxide.Plugins
             RestoreExcavators();
             LoadConfigVariables();
             ApplyExcavators();
-            arg.ReplyWith("[NWG Gather] Config reloaded and reapplied.");
+            arg.ReplyWith(GetMessage(Lang.ConfigReloaded, arg.Player()?.UserIDString));
         }
 
-        #endregion
+#endregion
 
-        #region Helpers
+#region Helpers
 
         /// <summary>
         /// Gets the modifier for a resource. Checks specific name first, then falls back to wildcard "*".
@@ -752,21 +798,21 @@ namespace Oxide.Plugins
             return 1.0f;
         }
 
-        private string FormatModifierSection(string title, Dictionary<string, float> modifiers)
+        private string FormatModifierSection(string title, Dictionary<string, float> modifiers, string userId)
         {
             if (modifiers == null || modifiers.Count == 0) return "";
 
-            string section = $"\n\n<color=#aaaaaa>{title}:</color>";
+            string section = GetMessage(Lang.RatesSection, userId, title);
 
             if (modifiers.ContainsKey("*"))
-                section += $"\n  <color=#ffcc00>Default:</color> <color=#55ff55>{modifiers["*"]}x</color>";
+                section += GetMessage(Lang.RatesDefault, userId, modifiers["*"]);
 
             foreach (var kvp in modifiers.Where(x => x.Key != "*").Take(8))
-                section += $"\n  <color=#ffcc00>{kvp.Key}:</color> <color=#55ff55>{kvp.Value}x</color>";
+                section += $"\n  <color=#FFA500>{kvp.Key}:</color> <color=#b7d092>{kvp.Value}x</color>";
 
             int remaining = modifiers.Count(x => x.Key != "*") - 8;
             if (remaining > 0)
-                section += $"\n  <color=#aaaaaa>... +{remaining} more</color>";
+                section += GetMessage(Lang.RatesMore, userId, remaining);
 
             return section;
         }
@@ -792,7 +838,7 @@ namespace Oxide.Plugins
             if (_notifiedPlayers.Contains(player.userID)) return;
 
             _notifiedPlayers.Add(player.userID);
-            player.ChatMessage("<color=#55aaff>[NWG Gather]</color> Enhanced gather rates are active! Type <color=#ffcc00>/gather</color> to see rates.");
+            player.ChatMessage(GetMessage(Lang.Notification, player.UserIDString));
         }
 
         private void OnPlayerDisconnected(BasePlayer player, string reason)
@@ -847,7 +893,7 @@ namespace Oxide.Plugins
                 RestoreExcavatorSettings(excavator);
         }
 
-        #endregion
+#endregion
     }
 }
 

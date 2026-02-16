@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -9,15 +9,15 @@ using Rust;
 
 namespace Oxide.Plugins
 {
-    [Info("NWGBuilding", "NWG Team", "3.1.0")]
-    [Description("Building Utilities: /remove tool with hammer hit detection and refunds.")]
+    [Info("NWGBuilding", "NWG Team", "3.1.1")]
+    [Description("Building Utilities: /remove tool with hammer hit detection.")]
     public class NWGBuilding : RustPlugin
     {
-        #region Config
+#region Config
         private class PluginConfig
         {
-            public float RefundRate = 0.5f; // 50% refund
-            public float RemoveTime = 30f; // 30 seconds to remove
+            public float RefundRate = 0.5f;
+            public float RemoveTime = 30f;
             public bool UseToolCupboard = true;
             public bool UseEntityOwner = true;
         }
@@ -40,13 +40,38 @@ namespace Oxide.Plugins
         }
 
         protected override void SaveConfig() => Config.WriteObject(_config);
-        #endregion
+#endregion
 
-        #region State
+#region Localization
+        public static class Lang
+        {
+            public const string Disabled = "Disabled";
+            public const string Enabled = "Enabled";
+            public const string TimedOut = "TimedOut";
+            public const string NotAllowed = "NotAllowed";
+            public const string Removed = "Removed";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.Disabled] = "<color=#b7d092>[NWG]</color> Remover Tool <color=#d9534f>Disabled</color>.",
+                [Lang.Enabled] = "<color=#b7d092>[NWG]</color> Remover Tool <color=#b7d092>Enabled</color> for <color=#FFA500>{0}s</color>.\nHit entities with your <color=#FFA500>Hammer</color> to remove them.",
+                [Lang.TimedOut] = "<color=#b7d092>[NWG]</color> Remover Tool <color=#FFA500>Timed Out</color>.",
+                [Lang.NotAllowed] = "<color=#d9534f>[NWG]</color> You are not allowed to remove this.",
+                [Lang.Removed] = "<color=#b7d092>[NWG]</color> Removed: <color=#FFA500>{0}</color>"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+#region State
         private HashSet<ulong> _removerMode = new HashSet<ulong>();
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -56,9 +81,9 @@ namespace Oxide.Plugins
         {
             _removerMode.Clear();
         }
-        #endregion
+#endregion
 
-        #region Commands
+#region Commands
         [ChatCommand("remove")]
         private void CmdRemove(BasePlayer player, string command, string[] args)
         {
@@ -67,30 +92,27 @@ namespace Oxide.Plugins
             if (_removerMode.Contains(player.userID))
             {
                 _removerMode.Remove(player.userID);
-                player.ChatMessage("<color=#ffaa00>Remover Tool Disabled.</color>");
+                player.ChatMessage(GetMessage(Lang.Disabled, player.UserIDString));
             }
             else
             {
                 _removerMode.Add(player.userID);
-                player.ChatMessage($"<color=#aaffaa>Remover Tool Enabled for {_config.RemoveTime}s.</color>\nHit entities with your <color=#ffcc00>Hammer</color> to remove them.");
+                player.ChatMessage(GetMessage(Lang.Enabled, player.UserIDString, _config.RemoveTime));
                 
-                // Auto-disable timer
                 timer.Once(_config.RemoveTime, () => 
                 {
                     if (_removerMode.Contains(player.userID))
                     {
                         _removerMode.Remove(player.userID);
                         if (player.IsConnected)
-                            player.ChatMessage("<color=#ffaa00>Remover Tool Timed Out.</color>");
+                            player.ChatMessage(GetMessage(Lang.TimedOut, player.UserIDString));
                     }
                 });
             }
         }
-        #endregion
+#endregion
 
-        #region Hooks
-        // OnHammerHit fires when player hits something with a hammer
-        // This is the correct hook — OnPlayerAttack does NOT fire for hammer hits
+#region Hooks
         private void OnHammerHit(BasePlayer player, HitInfo info)
         {
             if (player == null || info?.HitEntity == null) return;
@@ -98,64 +120,46 @@ namespace Oxide.Plugins
 
             TryRemove(player, info.HitEntity);
         }
-        #endregion
+#endregion
 
-        #region Removal Logic
+#region Removal Logic
         private void TryRemove(BasePlayer player, BaseEntity target)
         {
             if (!CanRemove(player, target)) 
             {
-                player.ChatMessage("<color=red>You are not allowed to remove this.</color>");
+                player.ChatMessage(GetMessage(Lang.NotAllowed, player.UserIDString));
                 return;
             }
             
             string entityName = target.ShortPrefabName ?? "Entity";
-
-            // Refund
             Refund(player, target);
             
-            // Kill the entity
-            if (target is BaseCombatEntity combatEnt)
-                combatEnt.Kill(BaseNetworkable.DestroyMode.Gib);
-            else
+            NextTick(() =>
+            {
+                if (target == null || target.IsDestroyed) return;
                 target.Kill(BaseNetworkable.DestroyMode.Gib);
-            
-            player.ChatMessage($"<color=#aaffaa>Removed:</color> {entityName}");
+                player.ChatMessage(GetMessage(Lang.Removed, player.UserIDString, entityName));
+            });
         }
 
         private bool CanRemove(BasePlayer player, BaseEntity target)
         {
             if (player.IsAdmin) return true;
-
-            // Tool Cupboard auth check
-            if (_config.UseToolCupboard)
+            if (_config.UseToolCupboard && !player.CanBuild()) return false;
+            if (_config.UseEntityOwner && target.OwnerID != 0 && target.OwnerID != player.userID)
             {
-                if (!player.CanBuild()) return false;
+                var team = RelationshipManager.ServerInstance?.FindPlayersTeam(player.userID);
+                if (team == null || !team.members.Contains(target.OwnerID)) return false;
             }
-
-            // Entity Owner check
-            if (_config.UseEntityOwner)
-            {
-                if (target.OwnerID != 0 && target.OwnerID != player.userID)
-                {
-                    // Allow team members
-                    var team = RelationshipManager.ServerInstance?.FindPlayersTeam(player.userID);
-                    if (team == null || !team.members.Contains(target.OwnerID))
-                        return false;
-                }
-            }
-
             return true;
         }
 
         private void Refund(BasePlayer player, BaseEntity target)
         {
             if (_config.RefundRate <= 0.0f) return;
-            
             if (target is BuildingBlock block)
             {
-                var grade = block.grade;
-                var gradeDef = block.blockDefinition?.GetGrade(grade, 0);
+                var gradeDef = block.blockDefinition?.GetGrade(block.grade, 0);
                 if (gradeDef != null && gradeDef.CostToBuild() != null)
                 {
                     foreach (var cost in gradeDef.CostToBuild())
@@ -164,15 +168,12 @@ namespace Oxide.Plugins
                         if (amount > 0)
                         {
                             var item = ItemManager.CreateByItemID(cost.itemDef.itemid, amount);
-                            if (item != null)
-                                player.GiveItem(item);
+                            if (item != null) player.GiveItem(item);
                         }
                     }
                 }
             }
-            // For deployables, we skip detailed refund in this version
         }
-        #endregion
+#endregion
     }
 }
-

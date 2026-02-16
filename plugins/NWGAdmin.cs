@@ -1,4 +1,4 @@
-// Forced Recompile: 2026-02-07 11:35
+﻿// Forced Recompile: 2026-02-07 11:35
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +16,7 @@ namespace Oxide.Plugins
     [Description("Essential Admin Tools: Radar, Vanish, Secure Login, and Moderation.")]
     public class NWGAdmin : RustPlugin
     {
-        #region Configuration
+#region Configuration
         private class PluginConfig
         {
             public bool RadarShowBox = true;
@@ -31,9 +31,9 @@ namespace Oxide.Plugins
             public bool VanishInfiniteRun = true;
         }
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Data Structures
+#region Data Structures
         private class AdminSecurityData
         {
             public Dictionary<ulong, string> AdminHashes = new Dictionary<ulong, string>();
@@ -47,9 +47,9 @@ namespace Oxide.Plugins
 
         private AdminSecurityData _securityData;
         private AdminModerationData _modData;
-        #endregion
+#endregion
 
-        #region State
+#region State
         // Security
         private readonly HashSet<ulong> _unlockedAdmins = new HashSet<ulong>();
         
@@ -62,9 +62,10 @@ namespace Oxide.Plugins
         private Timer _radarTimer;
         private int _playerLayerMask;
         private const string PermUse = "nwgcore.admin";
-        #endregion
+        private const string PermDuty = "nwgcore.adminduty";
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -137,7 +138,7 @@ namespace Oxide.Plugins
             // Security Lock
             if (player.IsAdmin && !_unlockedAdmins.Contains(player.userID))
             {
-                if (command == "login" || command == "setadminpass") return null;
+                if (command == "login" || command == "setadminpass" || command.StartsWith("nwgadmin.")) return null;
                 return false; 
             }
             
@@ -152,17 +153,17 @@ namespace Oxide.Plugins
             var basePlayer = player.Object as BasePlayer;
             if (basePlayer == null) return null;
 
-            // Security Lock — suppress chat for locked admins
+            // Security Lock â€” suppress chat for locked admins
             if (basePlayer.IsAdmin && !_unlockedAdmins.Contains(basePlayer.userID))
             {
-                basePlayer.ChatMessage("<color=red>Admin login required before chatting. Use /login <password></color>");
-                return true; // handled — suppress the message
+                basePlayer.ChatMessage(GetMessage(Lang.LoginRequired, basePlayer.UserIDString));
+                return true; // handled â€” suppress the message
             }
             
             // Freeze Lock
             if (_frozenPlayers.Contains(basePlayer.userID))
             {
-                basePlayer.ChatMessage("<color=red>You are frozen and cannot chat.</color>");
+                basePlayer.ChatMessage(GetMessage(Lang.FrozenChatError, basePlayer.UserIDString));
                 return true;
             }
 
@@ -171,7 +172,7 @@ namespace Oxide.Plugins
             {
                 if (UnityEngine.Time.realtimeSinceStartup < expiry)
                 {
-                    basePlayer.ChatMessage($"<color=red>You are muted for {Math.Ceiling(expiry - UnityEngine.Time.realtimeSinceStartup)}s.</color>");
+                    basePlayer.ChatMessage(GetMessage(Lang.MuteChatError, basePlayer.UserIDString, Math.Ceiling(expiry - UnityEngine.Time.realtimeSinceStartup)));
                     return true;
                 }
                 else
@@ -189,47 +190,52 @@ namespace Oxide.Plugins
             if (!player.IsAdmin) return;
             if (_unlockedAdmins.Contains(player.userID)) return;
 
+            player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
+            player.SendNetworkUpdateImmediate();
+
             if (!_securityData.AdminHashes.ContainsKey(player.userID))
             {
                
                 DisplaySetupUI(player);
-                SendReply(player, "<color=red>SECURITY WARNING:</color> You are an Admin but have no password set.\nUse <color=orange>/setadminpass <password></color> to set it.\n<color=red>YOU WILL BE KICKED AFTER SETUP.</color>");
+                SendReply(player, GetMessage(Lang.SecurityWarning, player.UserIDString));
             }
             else
             {
               
                 DisplayLoginUI(player);
-                SendReply(player, "<color=red>SECURITY ALERT:</color> Admin Login Required.\nUse <color=orange>/login <password></color>");
+                SendReply(player, GetMessage(Lang.SecurityAlert, player.UserIDString));
             }
         }
-        #endregion
+#endregion
 
-        #region Core Admin Commands (Security & Utils)
+#region Core Admin Commands (Security & Utils)
         [ChatCommand("setadminpass")]
         private void CmdAdminSetup(BasePlayer player, string command, string[] args)
         {
             if (!player.IsAdmin) return;
-            if (_securityData.AdminHashes.ContainsKey(player.userID)) { SendReply(player, "Password already set. Ask another admin to reset it if needed."); return; }
-            if (args.Length == 0) { SendReply(player, "Usage: /setadminpass <password>"); return; }
-            _securityData.AdminHashes[player.userID] = HashPassword(args[0]);
+            if (_securityData.AdminHashes.ContainsKey(player.userID)) { SendReply(player, GetMessage(Lang.PasswordSetError, player.UserIDString)); return; }
+            if (args.Length == 0) { SendReply(player, GetMessage(Lang.PasswordUsage, player.UserIDString)); return; }
+            string password = string.Join(" ", args);
+            _securityData.AdminHashes[player.userID] = HashPassword(password);
             SaveSecurityData();
-            player.Kick("Security Setup Complete. Please Re-Login.");
+            player.Kick(GetMessage(Lang.PasswordSet, player.UserIDString));
         }
 
         [ChatCommand("login")]
         private void CmdLogin(BasePlayer player, string command, string[] args)
         {
             if (!player.IsAdmin || _unlockedAdmins.Contains(player.userID)) return;
-            if (args.Length == 0 || !_securityData.AdminHashes.TryGetValue(player.userID, out string hash)) { CheckAdminSecurity(player); return; }
-            if (VerifyPassword(args[0], hash))
+            string password = string.Join(" ", args);
+            if (string.IsNullOrEmpty(password) || !_securityData.AdminHashes.TryGetValue(player.userID, out string hash)) { CheckAdminSecurity(player); return; }
+            if (VerifyPassword(password, hash))
             {
                 _unlockedAdmins.Add(player.userID);
                 player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, false);
                 player.SendNetworkUpdateImmediate();
                 DestroyUI(player);
-                SendReply(player, "<color=green>Admin Access Granted.</color>");
+                SendReply(player, GetMessage(Lang.LoginSuccess, player.UserIDString));
             }
-            else SendReply(player, "<color=red>Incorrect Password.</color>");
+            else SendReply(player, GetMessage(Lang.LoginFailed, player.UserIDString));
         }
 
         [ChatCommand("vanish")]
@@ -243,8 +249,8 @@ namespace Oxide.Plugins
         private void CmdRadar(BasePlayer player, string msg, string[] args)
         {
             if (!IsAdminAuth(player)) return;
-            if (_radarUsers.Contains(player.userID)) { _radarUsers.Remove(player.userID); player.ChatMessage("<color=#FFA500>[NWG]</color> Radar OFF"); }
-            else { _radarUsers.Add(player.userID); player.ChatMessage("<color=#51CF66>[NWG]</color> Radar ON"); }
+            if (_radarUsers.Contains(player.userID)) { _radarUsers.Remove(player.userID); SendReply(player, GetMessage(Lang.RadarDisabled, player.UserIDString)); }
+            else { _radarUsers.Add(player.userID); SendReply(player, GetMessage(Lang.RadarEnabled, player.UserIDString)); }
         }
 
         [ChatCommand("god")]
@@ -258,7 +264,7 @@ namespace Oxide.Plugins
                 var target = FindPlayer(args[0], player);
                 if (target == null) return;
                 ToggleGod(target);
-                SendReply(player, $"Toggled God for {target.displayName}");
+                SendReply(player, GetMessage(Lang.GodToggle, player.UserIDString, target.displayName));
                 return;
             }
 
@@ -270,17 +276,51 @@ namespace Oxide.Plugins
             if (_godPlayers.Contains(target.userID))
             {
                 _godPlayers.Remove(target.userID);
-                target.ChatMessage("God Mode: <color=#FF6B6B>Disabled</color>");
+                SendReply(target, GetMessage(Lang.GodDisabled, target.UserIDString));
             }
             else
             {
                 _godPlayers.Add(target.userID);
-                target.ChatMessage("God Mode: <color=#51CF66>Enabled</color>");
+                SendReply(target, GetMessage(Lang.GodEnabled, target.UserIDString));
             }
         }
-        #endregion
 
-        #region New Commands: Moderation
+        [ChatCommand("adminduty")]
+        private void CmdAdminDuty(BasePlayer player, string msg, string[] args)
+        {
+            if (!permission.UserHasPermission(player.UserIDString, PermDuty) && !player.IsAdmin)
+            {
+                SendReply(player, GetMessage(Lang.NoPermission, player.UserIDString));
+                return;
+            }
+
+            if (player.IsAdmin)
+            {
+                // Toggle OFF
+                player.SetPlayerFlag(BasePlayer.PlayerFlags.IsAdmin, false);
+                player.SendNetworkUpdate();
+                
+                // Auto-disable god/vanish/radar
+                if (_godPlayers.Contains(player.userID)) { _godPlayers.Remove(player.userID); SendReply(player, GetMessage(Lang.GodDisabled, player.UserIDString)); }
+                if (_vanishedPlayers.Contains(player.userID)) Reappear(player);
+                if (_radarUsers.Contains(player.userID)) { _radarUsers.Remove(player.userID); SendReply(player, GetMessage(Lang.RadarDisabled, player.UserIDString)); }
+
+                SendReply(player, GetMessage(Lang.DutyOff, player.UserIDString));
+            }
+            else
+            {
+                // Toggle ON
+                player.SetPlayerFlag(BasePlayer.PlayerFlags.IsAdmin, true);
+                player.SendNetworkUpdate();
+                SendReply(player, GetMessage(Lang.DutyOn, player.UserIDString));
+                
+                // Security check will happen on next tick/action or immediately
+                CheckAdminSecurity(player);
+            }
+        }
+#endregion
+
+#region New Commands: Moderation
         // NOTE: /kick chat command registered by NWGTools. This is a helper method.
         public void CmdKick(BasePlayer player, string command, string[] args)
         {
@@ -290,7 +330,7 @@ namespace Oxide.Plugins
             if (target == null) return;
             string reason = args.Length > 1 ? string.Join(" ", args.Skip(1)) : "Kicked by Admin";
             target.Kick(reason);
-            PrintToChat($"<color=red>{target.displayName} was kicked: {reason}</color>");
+            PrintToChat(GetMessage(Lang.KickedMessage, null, target.displayName, reason));
         }
 
         // NOTE: /ban chat command registered by NWGTools. This is a helper method.
@@ -305,7 +345,7 @@ namespace Oxide.Plugins
             _modData.Bans[target.UserIDString] = reason;
             SaveModData();
             target.Kick($"Banned: {reason}");
-            PrintToChat($"<color=red>{target.displayName} was BANNED: {reason}</color>");
+            PrintToChat(GetMessage(Lang.BannedMessage, null, target.displayName, reason));
         }
 
         [ChatCommand("unban")]
@@ -316,9 +356,9 @@ namespace Oxide.Plugins
             if (_modData.Bans.Remove(args[0]))
             {
                 SaveModData();
-                SendReply(player, $"Unbanned {args[0]}");
+                SendReply(player, GetMessage(Lang.UnbannedMessage, player.UserIDString, args[0]));
             }
-            else SendReply(player, "ID not found in ban list.");
+            else SendReply(player, GetMessage(Lang.BanNotFound, player.UserIDString));
         }
 
         // NOTE: /mute chat command registered by NWGTools. This is a helper method.
@@ -333,8 +373,8 @@ namespace Oxide.Plugins
             
             _modData.Mutes[target.userID] = UnityEngine.Time.realtimeSinceStartup + duration;
             SaveModData();
-            SendReply(player, $"Muted {target.displayName} for {duration/60} mins.");
-            target.ChatMessage($"<color=red>You have been muted for {duration/60} mins.</color>");
+            SendReply(player, GetMessage(Lang.MuteMessage, player.UserIDString, target.displayName, duration/60));
+            SendReply(target, GetMessage(Lang.MutedSelf, target.UserIDString, duration/60));
         }
 
         [ChatCommand("unmute")]
@@ -346,8 +386,8 @@ namespace Oxide.Plugins
             if (target == null) return;
             _modData.Mutes.Remove(target.userID);
             SaveModData();
-            SendReply(player, $"Unmuted {target.displayName}");
-            target.ChatMessage("<color=green>You have been unmuted.</color>");
+            SendReply(player, GetMessage(Lang.UnmuteMessage, player.UserIDString, target.displayName));
+            SendReply(target, GetMessage(Lang.UnmutedSelf, target.UserIDString));
         }
 
         [ChatCommand("freeze")]
@@ -360,8 +400,8 @@ namespace Oxide.Plugins
             
             _frozenPlayers.Add(target.userID);
             target.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
-            SendReply(player, $"Froze {target.displayName}");
-            target.ChatMessage("<color=red>You have been FROZEN by an admin.</color>");
+            SendReply(player, GetMessage(Lang.FreezeEnabled, player.UserIDString, target.displayName));
+            SendReply(target, GetMessage(Lang.FrozenMessage, target.UserIDString));
         }
 
         [ChatCommand("unfreeze")]
@@ -375,12 +415,12 @@ namespace Oxide.Plugins
             _frozenPlayers.Remove(target.userID);
             target.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, false);
             target.SendNetworkUpdateImmediate();
-            SendReply(player, $"Unfroze {target.displayName}");
-            target.ChatMessage("<color=green>You have been UNFROZEN.</color>");
+            SendReply(player, GetMessage(Lang.FreezeDisabled, player.UserIDString, target.displayName));
+            SendReply(target, GetMessage(Lang.UnfrozenMessage, target.UserIDString));
         }
-        #endregion
+#endregion
 
-        #region New Commands: Player Mgmt
+#region New Commands: Player Mgmt
         [ChatCommand("strip")]
         private void CmdStrip(BasePlayer player, string command, string[] args)
         {
@@ -389,7 +429,7 @@ namespace Oxide.Plugins
             var target = FindPlayer(args[0], player);
             if (target == null) return;
             target.inventory.Strip();
-            SendReply(player, $"Stripped inventory of {target.displayName}");
+            SendReply(player, GetMessage(Lang.StrippedInventory, player.UserIDString, target.displayName));
         }
 
         [ChatCommand("whois")]
@@ -400,13 +440,7 @@ namespace Oxide.Plugins
             var target = FindPlayer(args[0], player);
             if (target == null) return;
             
-            string info = $"<color=orange>Info for {target.displayName}:</color>\n" +
-                          $"ID: {target.UserIDString}\n" +
-                          $"IP: {target.net.connection.ipaddress}\n" +
-                          $"Ping: N/A\n" +
-                          $"Pos: {target.transform.position}\n" +
-                          $"Auth: {target.net.connection.authLevel}";
-            SendReply(player, info);
+            SendReply(player, GetMessage(Lang.WhoIsInfo, player.UserIDString, target.displayName, target.UserIDString, target.net.connection.ipaddress, target.transform.position, target.net.connection.authLevel));
         }
 
         // NOTE: /heal chat command registered by NWGTools. This is a helper method.
@@ -421,11 +455,11 @@ namespace Oxide.Plugins
             target.metabolism.bleeding.value = 0;
             target.metabolism.radiation_level.value = 0;
             target.SetHealth(target.MaxHealth());
-            SendReply(player, $"Healed {target.displayName}");
+            SendReply(player, GetMessage(Lang.HealedPlayer, player.UserIDString, target.displayName));
         }
-        #endregion
+#endregion
 
-        #region New Commands: Teleport & World
+#region New Commands: Teleport & World
         // NOTE: /tp chat command registered by NWGTransportation. This is a helper method.
         public void CmdTp(BasePlayer player, string command, string[] args)
         {
@@ -435,7 +469,7 @@ namespace Oxide.Plugins
             if (target == null) return;
             
             player.Teleport(target.transform.position);
-            SendReply(player, $"Teleported to {target.displayName}");
+            SendReply(player, GetMessage(Lang.TeleportedTo, player.UserIDString, target.displayName));
         }
 
         [ChatCommand("tphere")]
@@ -447,7 +481,7 @@ namespace Oxide.Plugins
             if (target == null) return;
             
             target.Teleport(player.transform.position);
-            SendReply(player, $"Teleported {target.displayName} to you");
+            SendReply(player, GetMessage(Lang.TeleportedHere, player.UserIDString, target.displayName));
         }
 
         [ChatCommand("up")]
@@ -459,7 +493,7 @@ namespace Oxide.Plugins
             var pos = player.transform.position;
             pos.y += dist;
             player.Teleport(pos);
-            SendReply(player, $"Went up {dist}m");
+            SendReply(player, GetMessage(Lang.UpMessage, player.UserIDString, dist));
         }
 
         [ChatCommand("repair")]
@@ -482,7 +516,7 @@ namespace Oxide.Plugins
                     count++;
                 }
             }
-            SendReply(player, $"Repaired {count} entities in {radius}m radius.");
+            SendReply(player, GetMessage(Lang.RepairedEntities, player.UserIDString, count, radius));
         }
 
         [ChatCommand("entkill")]
@@ -491,9 +525,9 @@ namespace Oxide.Plugins
             if (!IsAdminAuth(player)) return;
             if (!Physics.Raycast(player.eyes.HeadRay(), out var hit, 10f)) { SendReply(player, "No entity found."); return; }
             var entity = hit.GetEntity();
-            if (entity == null) { SendReply(player, "Hit nothing valid."); return; }
+            if (entity == null) { SendReply(player, GetMessage(Lang.EntKillFail, player.UserIDString)); return; }
             entity.Kill();
-            SendReply(player, $"Destroyed {entity.ShortPrefabName}");
+            SendReply(player, GetMessage(Lang.EntKillSuccess, player.UserIDString, entity.ShortPrefabName));
         }
 
         [ChatCommand("settime")]
@@ -504,7 +538,7 @@ namespace Oxide.Plugins
             if (float.TryParse(args[0], out float time))
             {
                 TOD_Sky.Instance.Cycle.Hour = time;
-                SendReply(player, $"Time set to {time}:00");
+                SendReply(player, GetMessage(Lang.TimeSet, player.UserIDString, time));
             }
         }
 
@@ -520,7 +554,7 @@ namespace Oxide.Plugins
             else if (type == "rain") { ConVar.Weather.rain = 1; }
             else if (type == "fog") { ConVar.Weather.fog = 1; }
             else if (type == "storm") { ConVar.Weather.rain = 1; ConVar.Weather.wind = 1; ConVar.Weather.fog = 0.5f; }
-            SendReply(player, $"Weather set to {type}");
+            SendReply(player, GetMessage(Lang.WeatherSet, player.UserIDString, type));
         }
         
         [ChatCommand("spawnhere")]
@@ -537,11 +571,11 @@ namespace Oxide.Plugins
             var entity = GameManager.server.CreateEntity(prefab, hit.point);
             if (entity == null)
             {
-                SendReply(player, "Could not spawn entity. Check prefab path.");
+                SendReply(player, GetMessage(Lang.SpawnFail, player.UserIDString));
                 return;
             }
             entity.Spawn();
-            SendReply(player, $"Spawned {prefab}");
+            SendReply(player, GetMessage(Lang.SpawnedEntity, player.UserIDString, prefab));
         }
 
         [ChatCommand("rocket")]
@@ -557,11 +591,11 @@ namespace Oxide.Plugins
                  rb.AddForce(Vector3.up * 2000f, ForceMode.Impulse);
             }
             Effect.server.Run("assets/prefabs/weapons/rocketlauncher/effects/rocket_explosion.prefab", target.transform.position);
-            SendReply(player, $"{target.displayName} is blasting off again!");
+            SendReply(player, GetMessage(Lang.RocketLaunch, player.UserIDString, target.displayName));
         }
-        #endregion
+#endregion
 
-        #region Helpers & Systems
+#region Helpers & Systems
         private bool IsAdminAuth(BasePlayer player)
         {
             if (!player.IsAdmin && !permission.UserHasPermission(player.UserIDString, PermUse)) return false;
@@ -591,9 +625,9 @@ namespace Oxide.Plugins
             }
         }
         private bool VerifyPassword(string input, string hash) => HashPassword(input) == hash;
-        #endregion
+#endregion
         
-        #region UI
+#region UI
 
         private void DisplayLoginUI(BasePlayer player)
         {
@@ -601,48 +635,9 @@ namespace Oxide.Plugins
             string panelName = "NWG_Sec_Login";
             CuiHelper.DestroyUi(player, panelName);
 
-            // Main background
-            elements.Add(new CuiPanel { Image = { Color = "0 0 0 0.85" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", panelName);
-            
-            // Title
-            elements.Add(new CuiLabel { Text = { Text = "ADMIN ACCESS LOCKED", FontSize = 35, Align = TextAnchor.MiddleCenter, Color = "1 0 0 1" }, RectTransform = { AnchorMin = "0 0.65", AnchorMax = "1 0.75" } }, panelName);
-            
-            // Instruction
-            elements.Add(new CuiLabel { Text = { Text = "Enter your admin password below:", FontSize = 16, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0 0.58", AnchorMax = "1 0.63" } }, panelName);
-            
-            // Input panel background
-            elements.Add(new CuiPanel { Image = { Color = "0.2 0.2 0.2 0.9" }, RectTransform = { AnchorMin = "0.35 0.48", AnchorMax = "0.65 0.54" } }, panelName, panelName + "_InputBg");
-            
-            // Password input field
-            elements.Add(new CuiElement
-            {
-                Parent = panelName + "_InputBg",
-                Components =
-                {
-                    new CuiInputFieldComponent
-                    {
-                        Align = TextAnchor.MiddleCenter,
-                        CharsLimit = 50,
-                        Command = "nwgadmin.trylogin",
-                        FontSize = 16,
-                        IsPassword = true,
-                        Text = ""
-                    },
-                    new CuiRectTransformComponent { AnchorMin = "0.05 0.1", AnchorMax = "0.95 0.9" }
-                }
-            });
-            
-            // Submit button
-            elements.Add(new CuiButton 
-            { 
-                Button = { Command = "nwgadmin.submitlogin", Color = "0.2 0.7 0.2 0.9" }, 
-                RectTransform = { AnchorMin = "0.4 0.4", AnchorMax = "0.6 0.46" }, 
-                Text = { Text = "LOGIN", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" } 
-            }, panelName);
-            
-            // Alternative: Chat command hint
-            elements.Add(new CuiLabel { Text = { Text = "Or use: /login <password>", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "0.6 0.6 0.6 1" }, RectTransform = { AnchorMin = "0 0.32", AnchorMax = "1 0.36" } }, panelName);
-            
+            elements.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
+            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIWarning, player.UserIDString), FontSize = 30, Align = TextAnchor.MiddleCenter, Color = UIConstants.AccentColor }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
+            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIAdminLocked, player.UserIDString), FontSize = 18, Align = TextAnchor.MiddleCenter, Color = UIConstants.TextColor }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
             CuiHelper.AddUi(player, elements);
         }
 
@@ -653,51 +648,9 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, panelName);
             CuiHelper.DestroyUi(player, "NWG_Sec_Login");
 
-            // Main background
-            elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.95" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", panelName);
-            
-            // Title
-            elements.Add(new CuiLabel { Text = { Text = "SECURITY SETUP REQUIRED", FontSize = 30, Align = TextAnchor.MiddleCenter, Color = "1 0.5 0 1" }, RectTransform = { AnchorMin = "0 0.65", AnchorMax = "1 0.75" } }, panelName);
-            
-            // Instructions
-            elements.Add(new CuiLabel { Text = { Text = "You are an Admin without a password.\nPlease set one now using the input below:", FontSize = 16, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0 0.55", AnchorMax = "1 0.63" } }, panelName);
-            
-            // Input panel background
-            elements.Add(new CuiPanel { Image = { Color = "0.2 0.2 0.2 0.9" }, RectTransform = { AnchorMin = "0.35 0.48", AnchorMax = "0.65 0.54" } }, panelName, panelName + "_InputBg");
-            
-            // Password input field
-            elements.Add(new CuiElement
-            {
-                Parent = panelName + "_InputBg",
-                Components =
-                {
-                    new CuiInputFieldComponent
-                    {
-                        Align = TextAnchor.MiddleCenter,
-                        CharsLimit = 50,
-                        Command = "nwgadmin.trysetpass",
-                        FontSize = 16,
-                        IsPassword = true,
-                        Text = ""
-                    },
-                    new CuiRectTransformComponent { AnchorMin = "0.05 0.1", AnchorMax = "0.95 0.9" }
-                }
-            });
-            
-            // Submit button
-            elements.Add(new CuiButton 
-            { 
-                Button = { Command = "nwgadmin.submitsetup", Color = "0.7 0.5 0.2 0.9" }, 
-                RectTransform = { AnchorMin = "0.4 0.4", AnchorMax = "0.6 0.46" }, 
-                Text = { Text = "SET PASSWORD", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" } 
-            }, panelName);
-            
-            // Warning
-            elements.Add(new CuiLabel { Text = { Text = "YOU WILL BE KICKED AFTER SETUP", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 0.3 0.3 1" }, RectTransform = { AnchorMin = "0 0.32", AnchorMax = "1 0.36" } }, panelName);
-            
-            // Alternative: Chat command hint
-            elements.Add(new CuiLabel { Text = { Text = "Or use: /setadminpass <password>", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "0.6 0.6 0.6 1" }, RectTransform = { AnchorMin = "0 0.28", AnchorMax = "1 0.32" } }, panelName);
-            
+            elements.Add(new CuiPanel { Image = { Color = "0 0 0 1" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
+             elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIAdminSetup, player.UserIDString), FontSize = 35, Align = TextAnchor.MiddleCenter, Color = UIConstants.SecondaryColor }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
+            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UILoginPrompt, player.UserIDString), FontSize = 18, Align = TextAnchor.MiddleCenter, Color = UIConstants.TextColor }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
             CuiHelper.AddUi(player, elements);
         }
         
@@ -712,7 +665,7 @@ namespace Oxide.Plugins
             var player = arg.Player();
             if (player == null) return;
             if (arg.Args == null || arg.Args.Length == 0) return;
-            _tempPasswords[player.userID] = arg.Args[0];
+            _tempPasswords[player.userID] = string.Join(" ", arg.Args);
         }
         
         [ConsoleCommand("nwgadmin.submitlogin")]
@@ -757,7 +710,7 @@ namespace Oxide.Plugins
             var player = arg.Player();
             if (player == null) return;
             if (arg.Args == null || arg.Args.Length == 0) return;
-            _tempPasswords[player.userID] = arg.Args[0];
+            _tempPasswords[player.userID] = string.Join(" ", arg.Args);
         }
         
         [ConsoleCommand("nwgadmin.submitsetup")]
@@ -791,9 +744,9 @@ namespace Oxide.Plugins
             _tempPasswords.Remove(player.userID);
             player.Kick("Security Setup Complete. Please Re-Login.");
         }
-        #endregion
+#endregion
 
-        #region Vanish/Radar Logic (Simplified for length)
+#region Vanish/Radar Logic (Simplified for length)
         private void Disappear(BasePlayer player)
         {
             if (_vanishedPlayers.Contains(player.userID)) return;
@@ -819,7 +772,7 @@ namespace Oxide.Plugins
 
         private object OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
         {
-            // Return false (not true) to cancel damage — aligns with NWGCombat's convention and avoids Oxide hook conflicts
+            // Return false (not true) to cancel damage â€” aligns with NWGCombat's convention and avoids Oxide hook conflicts
             if (entity is BasePlayer victim && ( _godPlayers.Contains(victim.userID) || (_config.VanishNoDamage && _vanishedPlayers.Contains(victim.userID)) )) return false; 
             if (info?.Initiator is BasePlayer attacker && _vanishedPlayers.Contains(attacker.userID) && _config.VanishNoDamage) return false; 
             return null;
@@ -863,9 +816,9 @@ namespace Oxide.Plugins
                 if (!string.IsNullOrEmpty(label)) player.SendConsoleCommand("ddraw.text", _config.RadarUpdateRate + 0.1f, color, entity.transform.position + Vector3.up, label);
             }
         }
-        #endregion
+#endregion
         
-        #region Command Registry
+#region Command Registry
         [ChatCommand("cmdlist")]
         private void CmdList(BasePlayer player, string command, string[] args)
         {
@@ -902,14 +855,142 @@ namespace Oxide.Plugins
             foreach(var cat in commands.GroupBy(c => c.Category)) { sb.AppendLine($"## {cat.Key}"); foreach(var cmd in cat) sb.AppendLine($"- **{cmd.Command}**: {cmd.Description}"); }
             Interface.Oxide.DataFileSystem.WriteObject("NWG_Command_Docs_Log", sb.ToString());
         }
-        #endregion
+#endregion
 
-        #region Test Suite
+#region Test Suite
         [ChatCommand("testall")]
         private void CmdTestAll(BasePlayer player, string command, string[] args) { if (IsAdminAuth(player)) SendReply(player, "Running Self Checks: Vanish, Radar, God... OK"); }
         [ChatCommand("tasks")]
         private void CmdTasks(BasePlayer player, string command, string[] args) { if (IsAdminAuth(player)) SendReply(player, "No manual verification tasks pending."); }
-        #endregion
+#endregion
+#region Localization
+        public static class UIConstants
+        {
+            public const string MainColor = "0.718 0.816 0.573 1"; // Sage Green
+            public const string SecondaryColor = "0.851 0.325 0.31 1"; // Red/Rust
+            public const string AccentColor = "1 0.647 0 1"; // Orange
+            public const string PanelColor = "0.15 0.15 0.15 0.98"; // Dark Panel
+            public const string TextColor = "0.867 0.867 0.867 1"; // Soft White
+            public const string ButtonColor = "0.25 0.25 0.25 0.9";
+        }
+
+        private class Lang
+        {
+            public const string NoPermission = "NoPermission";
+            public const string SecurityWarning = "SecurityWarning";
+            public const string SecurityAlert = "SecurityAlert";
+            public const string PasswordSet = "PasswordSet";
+            public const string PasswordSetError = "PasswordSetError";
+            public const string PasswordUsage = "PasswordUsage";
+            public const string LoginSuccess = "LoginSuccess";
+            public const string LoginFailed = "LoginFailed";
+            public const string LoginRequired = "LoginRequired";
+            public const string VanishEnabled = "VanishEnabled";
+            public const string VanishDisabled = "VanishDisabled";
+            public const string RadarEnabled = "RadarEnabled";
+            public const string RadarDisabled = "RadarDisabled";
+            public const string GodEnabled = "GodEnabled";
+            public const string GodDisabled = "GodDisabled";
+            public const string GodToggle = "GodToggle";
+            public const string PlayerNotFound = "PlayerNotFound";
+            public const string FreezeEnabled = "FreezeEnabled";
+            public const string FreezeDisabled = "FreezeDisabled";
+            public const string FrozenMessage = "FrozenMessage";
+            public const string FrozenChatError = "FrozenChatError";
+            public const string MuteChatError = "MuteChatError";
+            public const string UnfrozenMessage = "UnfrozenMessage";
+            public const string MuteMessage = "MuteMessage";
+            public const string UnmuteMessage = "UnmuteMessage";
+            public const string MutedSelf = "MutedSelf";
+            public const string UnmutedSelf = "UnmutedSelf";
+            public const string KickedMessage = "KickedMessage";
+            public const string BannedMessage = "BannedMessage";
+            public const string UnbannedMessage = "UnbannedMessage";
+            public const string BanNotFound = "BanNotFound";
+            public const string StrippedInventory = "StrippedInventory";
+            public const string HealedPlayer = "HealedPlayer";
+            public const string TeleportedTo = "TeleportedTo";
+            public const string TeleportedHere = "TeleportedHere";
+            public const string UpMessage = "UpMessage";
+            public const string RepairedEntities = "RepairedEntities";
+            public const string EntKillSuccess = "EntKillSuccess";
+            public const string EntKillFail = "EntKillFail";
+            public const string TimeSet = "TimeSet";
+            public const string WeatherSet = "WeatherSet";
+            public const string SpawnedEntity = "SpawnedEntity";
+            public const string SpawnFail = "SpawnFail";
+            public const string RocketLaunch = "RocketLaunch";
+            public const string UIClose = "UIClose";
+            public const string UIAdminSetup = "UIAdminSetup";
+            public const string UIAdminLocked = "UIAdminLocked";
+            public const string UILoginPrompt = "UILoginPrompt";
+            public const string UIWarning = "UIWarning";
+            public const string DutyOn = "DutyOn";
+            public const string DutyOff = "DutyOff";
+            public const string WhoIsInfo = "WhoIsInfo";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.NoPermission] = "You do not have permission to use this command.",
+                [Lang.DutyOn] = "<color=#b7d092>You are now ON Admin Duty! Powers enabled.</color>",
+                [Lang.DutyOff] = "<color=#d9534f>You are now OFF Admin Duty. Powers disabled.</color>",
+                [Lang.WhoIsInfo] = "<color=#55aaff>Info for {0}:</color>\nID: {1}\nIP: {2}\nPos: {3}\nAuth: {4}",
+                [Lang.SecurityWarning] = "<color=#d9534f>SECURITY WARNING:</color> You are an Admin but have no password set.\nUse <color=#FFA500>/setadminpass <password></color> to set it.\n<color=#d9534f>YOU WILL BE KICKED AFTER SETUP.</color>",
+                [Lang.SecurityAlert] = "<color=#d9534f>SECURITY ALERT:</color> Admin Login Required.\nUse <color=#FFA500>/login <password></color>",
+                [Lang.PasswordSet] = "Security Setup Complete. Please Re-Login.",
+                [Lang.PasswordSetError] = "Password already set. Ask another admin to reset it if needed.",
+                [Lang.PasswordUsage] = "Usage: /setadminpass <password>",
+                [Lang.LoginSuccess] = "<color=#b7d092>Admin Access Granted.</color>",
+                [Lang.LoginFailed] = "<color=#d9534f>Incorrect Password.</color>",
+                [Lang.LoginRequired] = "<color=#d9534f>Admin login required before chatting. Use /login <password></color>",
+                [Lang.VanishEnabled] = "Vanish: <color=#b7d092>Enabled</color>",
+                [Lang.VanishDisabled] = "Vanish: <color=#d9534f>Disabled</color>",
+                [Lang.RadarEnabled] = "<color=#b7d092>[NWG]</color> Radar ON",
+                [Lang.RadarDisabled] = "<color=#FFA500>[NWG]</color> Radar OFF",
+                [Lang.GodEnabled] = "God Mode: <color=#b7d092>Enabled</color>",
+                [Lang.GodDisabled] = "God Mode: <color=#d9534f>Disabled</color>",
+                [Lang.GodToggle] = "Toggled God for {0}",
+                [Lang.PlayerNotFound] = "Player not found.",
+                [Lang.FreezeEnabled] = "Froze {0}",
+                [Lang.FreezeDisabled] = "Unfroze {0}",
+                [Lang.FrozenMessage] = "<color=#d9534f>You have been FROZEN by an admin.</color>",
+                [Lang.UnfrozenMessage] = "<color=#b7d092>You have been UNFROZEN.</color>",
+                [Lang.FrozenChatError] = "<color=#d9534f>You are frozen and cannot chat.</color>",
+                [Lang.MuteChatError] = "<color=#d9534f>You are muted for {0}s.</color>",
+                [Lang.MuteMessage] = "Muted {0} for {1} mins.",
+                [Lang.UnmuteMessage] = "Unmuted {0}",
+                [Lang.MutedSelf] = "<color=#d9534f>You have been muted for {0} mins.</color>",
+                [Lang.UnmutedSelf] = "<color=#b7d092>You have been unmuted.</color>",
+                [Lang.KickedMessage] = "<color=#d9534f>{0} was kicked: {1}</color>",
+                [Lang.BannedMessage] = "<color=#d9534f>{0} was BANNED: {1}</color>",
+                [Lang.UnbannedMessage] = "Unbanned {0}",
+                [Lang.BanNotFound] = "ID not found in ban list.",
+                [Lang.StrippedInventory] = "Stripped inventory of {0}",
+                [Lang.HealedPlayer] = "Healed {0}",
+                [Lang.TeleportedTo] = "Teleported to {0}",
+                [Lang.TeleportedHere] = "Teleported {0} to you",
+                [Lang.UpMessage] = "Went up {0}m",
+                [Lang.RepairedEntities] = "Repaired {0} entities in {1}m radius.",
+                [Lang.EntKillSuccess] = "Destroyed {0}",
+                [Lang.EntKillFail] = "Hit nothing valid.",
+                [Lang.TimeSet] = "Time set to {0}:00",
+                [Lang.WeatherSet] = "Weather set to {0}",
+                [Lang.SpawnedEntity] = "Spawned {0}",
+                [Lang.SpawnFail] = "Could not spawn entity. Check prefab path.",
+                [Lang.RocketLaunch] = "{0} is blasting off again!",
+                [Lang.UIClose] = "âœ•",
+                [Lang.UIAdminSetup] = "ADMIN ACCESS LOCKED",
+                [Lang.UIAdminLocked] = "You are an Admin without a password.\nPlease set one now: /setadminpass <password>",
+                [Lang.UILoginPrompt] = "Login Required: /login <password>",
+                [Lang.UIWarning] = "SECURITY SETUP REQUIRED"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
     }
 }
 

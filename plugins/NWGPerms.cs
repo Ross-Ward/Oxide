@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -14,36 +14,36 @@ namespace Oxide.Plugins
     [Description("GUI-based permissions manager. Browse players, groups, and plugins to grant/revoke permissions visually.")]
     public class NWGPerms : RustPlugin
     {
-        #region Configuration
+#region Configuration
         private class PluginConfig
         {
             [JsonProperty("GUI Transparency (0-1)")]
             public double GuiTransparency = 0.95;
             [JsonProperty("Background Colour")]
-            public string BgColour = "0.15 0.15 0.15 1";
+            public string BgColour = "0.15 0.15 0.15 0.98";
             [JsonProperty("Header Colour")]
-            public string HeaderColour = "0.2 0.2 0.2 1";
+            public string HeaderColour = "0.1 0.1 0.1 1";
             [JsonProperty("Button Colour")]
-            public string ButtonColour = "0.4 0.4 0.4 0.9";
+            public string ButtonColour = "0.25 0.25 0.25 0.9";
             [JsonProperty("Button Hover Colour")]
-            public string ButtonHoverColour = "0.5 0.5 0.5 1";
+            public string ButtonHoverColour = "0.35 0.55 0.25 1";
             [JsonProperty("Granted Colour (On)")]
-            public string OnColour = "0.2 0.7 0.2 0.9";
+            public string OnColour = "0.718 0.816 0.573 1";
             [JsonProperty("Revoked Colour (Off)")]
-            public string OffColour = "0.7 0.2 0.2 0.9";
+            public string OffColour = "0.851 0.325 0.31 1";
             [JsonProperty("Inherited Colour")]
-            public string InheritedColour = "0.9 0.6 0.2 0.9";
+            public string InheritedColour = "1 0.647 0 1";
             [JsonProperty("Accent Colour")]
-            public string AccentColour = "0.3 0.6 0.9 1";
+            public string AccentColour = "1 0.647 0 1";
             [JsonProperty("Plugin BlockList (comma separated)")]
             public string BlockList = "";
             [JsonProperty("Grant All = Per Page Only")]
             public bool AllPerPage = false;
         }
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region State
+#region State
         private List<string> _plugList = new List<string>();
         private Dictionary<int, string> _numberedPerms = new Dictionary<int, string>();
         private HashSet<ulong> _menuOpen = new HashSet<ulong>();
@@ -59,9 +59,9 @@ namespace Oxide.Plugins
         }
 
         const string PERM_USE = "nwgperms.use";
-        #endregion
+#endregion
 
-        #region Data
+#region Data
         private StoredData _data;
         private class StoredData
         {
@@ -74,9 +74,9 @@ namespace Oxide.Plugins
             public int IsPlayer; // 0=group, 1=player
         }
         void SaveStoredData() => Interface.Oxide.DataFileSystem.WriteObject("NWGPerms", _data);
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         void Init()
         {
             permission.RegisterPermission(PERM_USE, this);
@@ -108,9 +108,9 @@ namespace Oxide.Plugins
         }
         protected override void LoadDefaultConfig() { Puts("Creating new config for NWG Perms"); _config = new PluginConfig(); SaveConfig(); }
         protected override void SaveConfig() => Config.WriteObject(_config);
-        #endregion
+#endregion
 
-        #region Helpers
+#region Helpers
         bool IsAllowed(BasePlayer p) => p?.net?.connection != null && (p.net.connection.authLevel == 2 || permission.UserHasPermission(p.UserIDString, PERM_USE));
         string Strip(string s) => s.Replace(@"\", "").Replace(@"/", "");
         string NoSpaces(string s) => s.Replace(" ", "-");
@@ -179,13 +179,13 @@ namespace Oxide.Plugins
             e.Add(new CuiLabel { FadeOut = 0.5f, Text = { FadeIn = 0.5f, Text = msg, FontSize = 28, Align = TextAnchor.MiddleCenter } }, m);
             CuiHelper.AddUi(p, e);
         }
-        #endregion
+#endregion
 
-        #region Chat Command
+#region Chat Command
         [ChatCommand("perms")]
         void CmdPerms(BasePlayer player, string cmd, string[] args)
         {
-            if (!IsAllowed(player)) { player.ChatMessage("<color=#ff4444>[NWG Perms]</color> You need auth level 2 or permission."); return; }
+            if (!IsAllowed(player)) { player.ChatMessage(GetMessage(Lang.NoPermission, player.UserIDString)); return; }
 
             if (!_sessions.ContainsKey(player.userID)) _sessions[player.userID] = new AdminSession();
             var s = GetSession(player);
@@ -195,13 +195,13 @@ namespace Oxide.Plugins
             if (args?.Length == 1 && args[0] == "help")
             {
                 player.ChatMessage(
-                    "<color=#55aaff>═══ NWG Perms Help ═══</color>\n" +
-                    "<color=#ffcc00>/perms</color> — Open player selector\n" +
-                    "<color=#ffcc00>/perms group</color> — Open group selector\n" +
-                    "<color=#ffcc00>/perms player <name|id></color> — Edit player permissions\n" +
-                    "<color=#ffcc00>/perms group <name></color> — Edit group permissions\n" +
-                    "<color=#ffcc00>/perms data</color> — Backup/restore/purge data\n" +
-                    "<color=#ffcc00>/perms help</color> — Show this help"
+                    "<color=#55aaff>â•â•â• NWG Perms Help â•â•â•</color>\n" +
+                    "<color=#ffcc00>/perms</color> â€” Open player selector\n" +
+                    "<color=#ffcc00>/perms group</color> â€” Open group selector\n" +
+                    "<color=#ffcc00>/perms player <name|id></color> â€” Edit player permissions\n" +
+                    "<color=#ffcc00>/perms group <name></color> â€” Edit group permissions\n" +
+                    "<color=#ffcc00>/perms data</color> â€” Backup/restore/purge data\n" +
+                    "<color=#ffcc00>/perms help</color> â€” Show this help"
                 );
                 return;
             }
@@ -224,22 +224,22 @@ namespace Oxide.Plugins
             {
                 ulong n; bool num = ulong.TryParse(args[1], out n);
                 s.Subject = num ? FindPlayerById(n) : FindPlayerByName(args[1]);
-                if (s.Subject == null) { player.ChatMessage($"<color=#ff4444>[NWG Perms]</color> Player '{args[1]}' not found."); return; }
+                if (s.Subject == null) { ShowMsg(player, GetMessage(Lang.MsgNoPlayer, player.UserIDString)); return; }
                 if (_menuOpen.Contains(player.userID)) CloseUI(player, true);
                 DrawBg(player); DrawPluginsUI(player, $"Permissions for {Strip(s.Subject.displayName)}", "false", page);
             }
             else if (args[0] == "group")
             {
-                if (!permission.GetGroups().Contains(args[1])) { player.ChatMessage($"<color=#ff4444>[NWG Perms]</color> Group '{args[1]}' not found."); return; }
+                if (!permission.GetGroups().Contains(args[1])) { ShowMsg(player, GetMessage(Lang.MsgNoGroup, player.UserIDString)); return; }
                 s.SubjectGroup = args[1];
                 if (_menuOpen.Contains(player.userID)) CloseUI(player, true);
                 DrawBg(player); DrawPluginsUI(player, $"Permissions for {args[1]}", "true", page);
             }
             else player.ChatMessage("<color=#ffcc00>[NWG Perms]</color> /perms, /perms player <name>, /perms group <name>, /perms data, /perms help");
         }
-        #endregion
+#endregion
 
-        #region UI Drawing
+#region UI Drawing
         void DrawBg(BasePlayer p)
         {
             _menuOpen.Add(p.userID);
@@ -250,7 +250,7 @@ namespace Oxide.Plugins
             // Footer bar
             e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 0.05" } }, bg);
             // Close button with accent color
-            e.Add(new CuiButton { Button = { Command = "nwgp.close", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.955 0.96", AnchorMax = "0.99 0.995" }, Text = { Text = "✖", FontSize = 12, Align = TextAnchor.MiddleCenter } }, bg);
+            e.Add(new CuiButton { Button = { Command = "nwgp.close", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.955 0.96", AnchorMax = "0.99 0.995" }, Text = { Text = "âœ–", FontSize = 12, Align = TextAnchor.MiddleCenter } }, bg);
             CuiHelper.AddUi(p, e);
         }
 
@@ -262,12 +262,12 @@ namespace Oxide.Plugins
             string currentLabel = !group ? "Players" : "Groups";
 
             // Title with accent color
-            e.Add(new CuiLabel { Text = { Text = "NWG PERMISSIONS MANAGER", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0 0.96", AnchorMax = "1 0.995" } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.Title, p.UserIDString), FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0 0.96", AnchorMax = "1 0.995" } }, m);
             // Switch button with accent color
-            e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} 1", Color = _config.AccentColour }, RectTransform = { AnchorMin = "0.35 0.015", AnchorMax = "0.65 0.045" }, Text = { Text = $"View All {switchLabel}", FontSize = 12, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} 1", Color = _config.AccentColour }, RectTransform = { AnchorMin = "0.35 0.015", AnchorMax = "0.65 0.045" }, Text = { Text = group ? GetMessage(Lang.ViewPlayers, p.UserIDString) : GetMessage(Lang.ViewGroups, p.UserIDString), FontSize = 12, Align = TextAnchor.MiddleCenter } }, m);
             // Section header
             e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0 0.89", AnchorMax = "1 0.94" } }, m);
-            e.Add(new CuiLabel { Text = { Text = $"All {currentLabel}", FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0 0.89", AnchorMax = "1 0.94" } }, m);
+            e.Add(new CuiLabel { Text = { Text = !group ? GetMessage(Lang.AllPlayers, p.UserIDString) : GetMessage(Lang.AllGroups, p.UserIDString), FontSize = 13, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0 0.89", AnchorMax = "1 0.94" } }, m);
 
             int pos = 20 - (page * 20), count = 0;
             float top = 0.865f, bot = 0.84f;
@@ -299,9 +299,9 @@ namespace Oxide.Plugins
             }
 
             if (count > page * 20)
-                e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} {page + 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.8 0.015", AnchorMax = "0.9 0.045" }, Text = { Text = "→", FontSize = 14, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} {page + 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.8 0.015", AnchorMax = "0.9 0.045" }, Text = { Text = "â†’", FontSize = 14, Align = TextAnchor.MiddleCenter } }, m);
             if (page > 1)
-                e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} {page - 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.1 0.015", AnchorMax = "0.2 0.045" }, Text = { Text = "←", FontSize = 14, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} {page - 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.1 0.015", AnchorMax = "0.2 0.045" }, Text = { Text = "â†", FontSize = 14, Align = TextAnchor.MiddleCenter } }, m);
 
             CuiHelper.AddUi(p, e);
         }
@@ -328,16 +328,16 @@ namespace Oxide.Plugins
                     e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {i} null null {group} null 1", Color = _config.ButtonColour }, RectTransform = { AnchorMin = $"0.7 {yOff(pos - 40)}", AnchorMax = $"0.9 {yOff2(pos - 40)}" }, Text = { Text = _plugList[i], FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
             }
 
-            e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {toggle} {backPage}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.55 0.02", AnchorMax = "0.75 0.04" }, Text = { Text = "Back", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {toggle} {backPage}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.55 0.02", AnchorMax = "0.75 0.04" }, Text = { Text = GetMessage(Lang.Back, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
             e.Add(new CuiLabel { Text = { Text = title, FontSize = 16, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.95", AnchorMax = "1 1" } }, m);
 
             if (group == "false")
             {
-                e.Add(new CuiButton { Button = { Command = "nwgp.revokeall", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.4 0.1", AnchorMax = "0.6 0.14" }, Text = { Text = "Revoke All", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
-                e.Add(new CuiButton { Button = { Command = "nwgp.groups 1", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.02", AnchorMax = "0.45 0.04" }, Text = { Text = "Groups", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = "nwgp.revokeall", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.4 0.1", AnchorMax = "0.6 0.14" }, Text = { Text = GetMessage(Lang.RevokeAll, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = "nwgp.groups 1", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.02", AnchorMax = "0.45 0.04" }, Text = { Text = GetMessage(Lang.Groups, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
             }
             else
-                e.Add(new CuiButton { Button = { Command = "nwgp.playersin 1", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.02", AnchorMax = "0.45 0.04" }, Text = { Text = "Players", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = "nwgp.playersin 1", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.02", AnchorMax = "0.45 0.04" }, Text = { Text = GetMessage(Lang.Players, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
 
             if (total > page * 60)
                 e.Add(new CuiButton { Button = { Command = $"nwgp.nav {group} {page + 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.8 0.02", AnchorMax = "0.9 0.04" }, Text = { Text = "->", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
@@ -355,8 +355,8 @@ namespace Oxide.Plugins
 
             int total = 0, pos = 20 - (page * 20);
             // Grant/Revoke All buttons
-            e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} grant null {group} all {page}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = $"0.5 {0.89f - (pos * 3f) / 100f}", AnchorMax = $"0.6 {0.91f - (pos * 3f) / 100f}" }, Text = { Text = "Grant All", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-            e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} revoke null {group} all {page}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = $"0.65 {0.89f - (pos * 3f) / 100f}", AnchorMax = $"0.75 {0.91f - (pos * 3f) / 100f}" }, Text = { Text = "Revoke All", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} grant null {group} all {page}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = $"0.5 {0.89f - (pos * 3f) / 100f}", AnchorMax = $"0.6 {0.91f - (pos * 3f) / 100f}" }, Text = { Text = GetMessage(Lang.GrantAll, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} revoke null {group} all {page}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = $"0.65 {0.89f - (pos * 3f) / 100f}", AnchorMax = $"0.75 {0.91f - (pos * 3f) / 100f}" }, Text = { Text = GetMessage(Lang.RevokeAll, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
 
             foreach (var perm in _numberedPerms)
             {
@@ -371,14 +371,14 @@ namespace Oxide.Plugins
 
                 var inherited = (List<string>)check[1];
                 if (inherited.Count > 0)
-                    e.Add(new CuiButton { Button = { Command = $"nwgp.inherited {plugNum} {perm.Value} {group} {page} {perm.Value}", Color = _config.InheritedColour }, RectTransform = { AnchorMin = $"0.8 {y1}", AnchorMax = $"0.9 {y2}" }, Text = { Text = "Inherited", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+                    e.Add(new CuiButton { Button = { Command = $"nwgp.inherited {plugNum} {perm.Value} {group} {page} {perm.Value}", Color = _config.InheritedColour }, RectTransform = { AnchorMin = $"0.8 {y1}", AnchorMax = $"0.9 {y2}" }, Text = { Text = GetMessage(Lang.Inherited, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
 
                 e.Add(new CuiButton { Button = { Color = _config.ButtonColour }, RectTransform = { AnchorMin = $"0.1 {y1}", AnchorMax = $"0.45 {y2}" }, Text = { Text = output, FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-                e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} grant {perm.Value} {group} null {page}", Color = _btnOn }, RectTransform = { AnchorMin = $"0.5 {y1}", AnchorMax = $"0.6 {y2}" }, Text = { Text = "Granted", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-                e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} revoke {perm.Value} {group} null {page}", Color = _btnOff }, RectTransform = { AnchorMin = $"0.65 {y1}", AnchorMax = $"0.75 {y2}" }, Text = { Text = "Revoked", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} grant {perm.Value} {group} null {page}", Color = _btnOn }, RectTransform = { AnchorMin = $"0.5 {y1}", AnchorMax = $"0.6 {y2}" }, Text = { Text = GetMessage(Lang.Granted, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} revoke {perm.Value} {group} null {page}", Color = _btnOff }, RectTransform = { AnchorMin = $"0.65 {y1}", AnchorMax = $"0.75 {y2}" }, Text = { Text = GetMessage(Lang.Revoked, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
             }
 
-            e.Add(new CuiButton { Button = { Command = $"nwgp.nav {group} {s.PluginPage}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.4 0.02", AnchorMax = "0.6 0.04" }, Text = { Text = "Back", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = $"nwgp.nav {group} {s.PluginPage}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.4 0.02", AnchorMax = "0.6 0.04" }, Text = { Text = GetMessage(Lang.Back, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
             e.Add(new CuiLabel { Text = { Text = title, FontSize = 16, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.95", AnchorMax = "1 1" } }, m);
             if (total > page * 20)
                 e.Add(new CuiButton { Button = { Command = $"nwgp.permslist {plugNum} null null {group} null {page + 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.8 0.02", AnchorMax = "0.9 0.04" }, Text = { Text = "->", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
@@ -404,13 +404,13 @@ namespace Oxide.Plugins
                     if (u.Contains(s.Subject.UserIDString)) { SetButtons(false); break; }
 
                 e.Add(new CuiButton { Button = { Color = _config.ButtonColour }, RectTransform = { AnchorMin = $"0.2 {y1}", AnchorMax = $"0.5 {y2}" }, Text = { Text = g, FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-                e.Add(new CuiButton { Button = { Command = $"nwgp.groupmod add {NoSpaces(g)} {page}", Color = _btnOn }, RectTransform = { AnchorMin = $"0.55 {y1}", AnchorMax = $"0.65 {y2}" }, Text = { Text = "Granted", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-                e.Add(new CuiButton { Button = { Command = $"nwgp.groupmod remove {NoSpaces(g)} {page}", Color = _btnOff }, RectTransform = { AnchorMin = $"0.7 {y1}", AnchorMax = $"0.8 {y2}" }, Text = { Text = "Revoked", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = $"nwgp.groupmod add {NoSpaces(g)} {page}", Color = _btnOn }, RectTransform = { AnchorMin = $"0.55 {y1}", AnchorMax = $"0.65 {y2}" }, Text = { Text = GetMessage(Lang.Granted, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = $"nwgp.groupmod remove {NoSpaces(g)} {page}", Color = _btnOff }, RectTransform = { AnchorMin = $"0.7 {y1}", AnchorMax = $"0.8 {y2}" }, Text = { Text = GetMessage(Lang.Revoked, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
             }
 
-            e.Add(new CuiButton { Button = { Command = $"nwgp.removeallgroups {page}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.4 0.1", AnchorMax = "0.6 0.14" }, Text = { Text = "Remove From All", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
-            e.Add(new CuiButton { Button = { Command = $"nwgp.nav false {s.PluginPage}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.4 0.02", AnchorMax = "0.6 0.04" }, Text = { Text = "Back", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
-            e.Add(new CuiLabel { Text = { Text = $"Groups for {title}", FontSize = 16, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.95", AnchorMax = "1 1" } }, m);
+            e.Add(new CuiButton { Button = { Command = $"nwgp.removeallgroups {page}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.4 0.1", AnchorMax = "0.6 0.14" }, Text = { Text = GetMessage(Lang.RemoveFromAll, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = $"nwgp.nav false {s.PluginPage}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.4 0.02", AnchorMax = "0.6 0.04" }, Text = { Text = GetMessage(Lang.Back, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.GroupsFor, p.UserIDString, title), FontSize = 16, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.95", AnchorMax = "1 1" } }, m);
             if (total > page * 20)
                 e.Add(new CuiButton { Button = { Command = $"nwgp.groups {page + 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.7 0.02", AnchorMax = "0.8 0.04" }, Text = { Text = "->", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
             if (page > 1)
@@ -432,10 +432,10 @@ namespace Oxide.Plugins
                     e.Add(new CuiButton { Button = { Color = _config.ButtonColour }, RectTransform = { AnchorMin = $"0.2 {y1}", AnchorMax = $"0.8 {y2}" }, Text = { Text = u, FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
                 }
             }
-            e.Add(new CuiLabel { Text = { Text = $"Players in {groupName}", FontSize = 16, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.95", AnchorMax = "1 1" } }, m);
-            e.Add(new CuiButton { Button = { Command = "nwgp.emptygroup", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.02", AnchorMax = "0.45 0.04" }, Text = { Text = "Remove All Players", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.PlayersIn, p.UserIDString, groupName), FontSize = 16, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0.95", AnchorMax = "1 1" } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.emptygroup", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.02", AnchorMax = "0.45 0.04" }, Text = { Text = GetMessage(Lang.RemoveAllPlayers, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
             var s = GetSession(p);
-            e.Add(new CuiButton { Button = { Command = $"nwgp.nav true {s.PlayerPage}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.55 0.02", AnchorMax = "0.75 0.04" }, Text = { Text = "Back", FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = $"nwgp.nav true {s.PlayerPage}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.55 0.02", AnchorMax = "0.75 0.04" }, Text = { Text = GetMessage(Lang.Back, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter } }, m);
             CuiHelper.AddUi(p, e);
         }
 
@@ -443,49 +443,49 @@ namespace Oxide.Plugins
         {
             var e = new CuiElementContainer();
             var m = e.Add(new CuiPanel { Image = { Color = "0 0 0 0" }, RectTransform = { AnchorMin = "0.32 0.1", AnchorMax = "0.68 0.9" }, CursorEnabled = true }, "Overlay", "NWGPData");
-            e.Add(new CuiLabel { Text = { Text = "NWG PERMS - DATA MANAGEMENT", FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0 0.96", AnchorMax = "1 0.995" } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.DataTitle, p.UserIDString), FontSize = 14, Align = TextAnchor.MiddleCenter, Color = "1 1 1 1" }, RectTransform = { AnchorMin = "0 0.96", AnchorMax = "1 0.995" } }, m);
 
             // Local Backup Section
             e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0.05 0.84", AnchorMax = "0.95 0.87" } }, m);
-            e.Add(new CuiLabel { Text = { Text = "LOCAL DATA BACKUP", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0.05 0.84", AnchorMax = "0.95 0.87" } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.LocalBackup, p.UserIDString), FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0.05 0.84", AnchorMax = "0.95 0.87" } }, m);
 
-            e.Add(new CuiLabel { Text = { Text = "Save:", FontSize = 11, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.05 0.8", AnchorMax = "0.25 0.83" } }, m);
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 0", Color = _config.OnColour }, RectTransform = { AnchorMin = "0.3 0.8", AnchorMax = "0.47 0.83" }, Text = { Text = "Groups", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 1", Color = _config.OnColour }, RectTransform = { AnchorMin = "0.53 0.8", AnchorMax = "0.7 0.83" }, Text = { Text = "Players", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.Save, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.05 0.8", AnchorMax = "0.25 0.83" } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 0", Color = _config.OnColour }, RectTransform = { AnchorMin = "0.3 0.8", AnchorMax = "0.47 0.83" }, Text = { Text = GetMessage(Lang.Groups, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 1", Color = _config.OnColour }, RectTransform = { AnchorMin = "0.53 0.8", AnchorMax = "0.7 0.83" }, Text = { Text = GetMessage(Lang.Players, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
 
-            e.Add(new CuiLabel { Text = { Text = "Load:", FontSize = 11, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.05 0.76", AnchorMax = "0.25 0.79" } }, m);
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 2", Color = _config.AccentColour }, RectTransform = { AnchorMin = "0.3 0.76", AnchorMax = "0.47 0.79" }, Text = { Text = "Groups", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 3", Color = _config.AccentColour }, RectTransform = { AnchorMin = "0.53 0.76", AnchorMax = "0.7 0.79" }, Text = { Text = "Players", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.Load, p.UserIDString), FontSize = 11, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.05 0.76", AnchorMax = "0.25 0.79" } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 2", Color = _config.AccentColour }, RectTransform = { AnchorMin = "0.3 0.76", AnchorMax = "0.47 0.79" }, Text = { Text = GetMessage(Lang.Groups, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 3", Color = _config.AccentColour }, RectTransform = { AnchorMin = "0.53 0.76", AnchorMax = "0.7 0.79" }, Text = { Text = GetMessage(Lang.Players, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
             
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 4", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.3 0.72", AnchorMax = "0.7 0.75" }, Text = { Text = "Wipe Local Backup", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 4", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.3 0.72", AnchorMax = "0.7 0.75" }, Text = { Text = GetMessage(Lang.WipeBackup, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
 
             // Purge Section
             e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0.05 0.64", AnchorMax = "0.95 0.67" } }, m);
-            e.Add(new CuiLabel { Text = { Text = "PURGE UNLOADED PERMISSIONS", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0.05 0.64", AnchorMax = "0.95 0.67" } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.PurgeTitle, p.UserIDString), FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0.05 0.64", AnchorMax = "0.95 0.67" } }, m);
             
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 5", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.6", AnchorMax = "0.75 0.63" }, Text = { Text = "Purge Groups", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 6", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.56", AnchorMax = "0.75 0.59" }, Text = { Text = "Purge Players", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 5", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.6", AnchorMax = "0.75 0.63" }, Text = { Text = GetMessage(Lang.PurgeGroups, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 6", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.25 0.56", AnchorMax = "0.75 0.59" }, Text = { Text = GetMessage(Lang.PurgePlayers, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
 
             // Global Remove Section
             e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0.05 0.48", AnchorMax = "0.95 0.51" } }, m);
-            e.Add(new CuiLabel { Text = { Text = "GLOBAL REMOVE (DANGER)", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 0.4 0.4 1" }, RectTransform = { AnchorMin = "0.05 0.48", AnchorMax = "0.95 0.51" } }, m);
+            e.Add(new CuiLabel { Text = { Text = GetMessage(Lang.GlobalRemove, p.UserIDString), FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 0.4 0.4 1" }, RectTransform = { AnchorMin = "0.05 0.48", AnchorMax = "0.95 0.51" } }, m);
             
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 7", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.25 0.44", AnchorMax = "0.75 0.47" }, Text = { Text = "Empty All Groups", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 8", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.25 0.4", AnchorMax = "0.75 0.43" }, Text = { Text = "Delete All Groups", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
-            e.Add(new CuiButton { Button = { Command = "nwgp.data 9", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.25 0.36", AnchorMax = "0.75 0.39" }, Text = { Text = "Wipe All Player Permissions", FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 7", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.25 0.44", AnchorMax = "0.75 0.47" }, Text = { Text = GetMessage(Lang.EmptyAllGroups, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 8", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.25 0.4", AnchorMax = "0.75 0.43" }, Text = { Text = GetMessage(Lang.DeleteAllGroups, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
+            e.Add(new CuiButton { Button = { Command = "nwgp.data 9", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.25 0.36", AnchorMax = "0.75 0.39" }, Text = { Text = GetMessage(Lang.WipePlayerPerms, p.UserIDString), FontSize = 10, Align = TextAnchor.MiddleCenter } }, m);
 
             CuiHelper.AddUi(p, e);
         }
-        #endregion
+#endregion
 
-        #region Console Commands
+#region Console Commands
         [ConsoleCommand("nwgp.close")]
-        void CCClose(ConsoleSystem.Arg a) { if (a.Player() != null) CloseUI(a.Player(), true); }
+        void CCClose(ConsoleSystem.Arg a) { var p = a.Player(); if (p != null) CloseUI(p, true); }
 
         [ConsoleCommand("nwgp.toggle")]
         void CCToggle(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 2) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 2) return;
             bool group = !Convert.ToBoolean(a.Args[0]); int page = Convert.ToInt32(a.Args[1]);
             var s = GetSession(p);
             if (group) s.GroupPage = page; else s.PlayerPage = page;
@@ -495,7 +495,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.select")]
         void CCSelect(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 2) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 2) return;
             var s = GetSession(p);
             CloseUI(p, false);
             if (a.Args[0] == "player") { s.Subject = FindPlayerById(Convert.ToUInt64(a.Args[1])); CmdPerms(p, null, new[] { "player", a.Args[1] }); }
@@ -505,17 +505,17 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.nav")]
         void CCNav(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 2) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 2) return;
             var s = GetSession(p); s.PluginPage = Convert.ToInt32(a.Args[1]);
             CloseUI(p, false);
             if (a.Args[0] == "true")
             {
-                if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
+                if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, GetMessage(Lang.MsgNoGroup, p.UserIDString)); return; }
                 CmdPerms(p, null, new[] { "group", s.SubjectGroup, s.PluginPage.ToString() });
             }
             else
             {
-                if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
+                if (s.Subject == null) { ShowMsg(p, GetMessage(Lang.MsgNoPlayer, p.UserIDString)); return; }
                 CmdPerms(p, null, new[] { "player", s.Subject.userID.ToString(), s.PluginPage.ToString() });
             }
         }
@@ -523,14 +523,14 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.permslist")]
         void CCPermsList(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 6) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 6) return;
             var s = GetSession(p);
             int plugNum = Convert.ToInt32(a.Args[0]); string action = a.Args[1]; string perm = a.Args[2];
             string group = a.Args[3]; string allFlag = a.Args[4]; int page = Convert.ToInt32(a.Args[5]);
 
             // Validate subject exists
-            if (group == "false" && s.Subject == null) { ShowMsg(p, "No player selected."); return; }
-            if (group == "true" && string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
+            if (group == "false" && s.Subject == null) { ShowMsg(p, GetMessage(Lang.MsgNoPlayer, p.UserIDString)); return; }
+            if (group == "true" && string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, GetMessage(Lang.MsgNoGroup, p.UserIDString)); return; }
 
             // Bounds check on plugNum
             if (plugNum < 0 || plugNum >= _plugList.Count) { RefreshPlugList(); if (plugNum < 0 || plugNum >= _plugList.Count) { ShowMsg(p, "Plugin index out of range. Try again."); return; } }
@@ -554,7 +554,7 @@ namespace Oxide.Plugins
                     if (action == "grant" && group == "true") { permission.GrantGroupPermission(s.SubjectGroup, np.Value, null); changed = true; }
                     if (action == "revoke" && group == "true") { permission.RevokeGroupPermission(s.SubjectGroup, np.Value); changed = true; }
                 }
-                if (changed) ShowMsg(p, $"{(action == "grant" ? "Granted" : "Revoked")} all permissions");
+                if (changed) ShowMsg(p, GetMessage(Lang.MsgAllRevoked, p.UserIDString));
             }
             else if (perm != "null")
             {
@@ -580,25 +580,25 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.groups")]
         void CCGroups(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 1) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 1) return;
             var s = GetSession(p); s.GroupPage = Convert.ToInt32(a.Args[0]);
-            if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
+            if (s.Subject == null) { ShowMsg(p, GetMessage(Lang.MsgNoPlayer, p.UserIDString)); return; }
             CloseUI(p, false); DrawGroupsForPlayerUI(p, Strip(s.Subject.displayName), s.GroupPage);
         }
 
         [ConsoleCommand("nwgp.playersin")]
         void CCPlayersIn(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 1) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 1) return;
             var s = GetSession(p); s.PlayerPage = Convert.ToInt32(a.Args[0]);
-            if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
+            if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, GetMessage(Lang.MsgNoGroup, p.UserIDString)); return; }
             CloseUI(p, false); DrawPlayersInGroupUI(p, s.SubjectGroup, s.PlayerPage);
         }
 
         [ConsoleCommand("nwgp.groupmod")]
         void CCGroupMod(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 3) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 3) return;
             var s = GetSession(p); string g = AddSpaces(a.Args[1]); int page = Convert.ToInt32(a.Args[2]);
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             if (a.Args[0] == "add") { permission.AddUserGroup(s.Subject.UserIDString, g); ShowMsg(p, $"Added to {g}"); }
@@ -609,7 +609,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.revokeall")]
         void CCRevokeAll(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p)) return;
             var s = GetSession(p);
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             foreach (var pm in permission.GetUserPermissions(s.Subject.UserIDString))
@@ -620,7 +620,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.removeallgroups")]
         void CCRemoveAllGroups(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p)) return;
             var s = GetSession(p); int page = a.Args?.Length > 0 ? Convert.ToInt32(a.Args[0]) : 1;
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             int count = 0;
@@ -633,7 +633,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.emptygroup")]
         void CCEmptyGroup(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p)) return;
             var s = GetSession(p);
             if (string.IsNullOrEmpty(s.SubjectGroup)) { ShowMsg(p, "No group selected."); return; }
             foreach (var u in permission.GetUsersInGroup(s.SubjectGroup))
@@ -647,7 +647,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.inherited")]
         void CCInherited(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 5) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 5) return;
             var s = GetSession(p);
             if (s.Subject == null) { ShowMsg(p, "No player selected."); return; }
             s.InheritedCheck = a.Args[4] == s.InheritedCheck ? "" : a.Args[4];
@@ -664,7 +664,7 @@ namespace Oxide.Plugins
         [ConsoleCommand("nwgp.data")]
         void CCData(ConsoleSystem.Arg a)
         {
-            var p = a.Player(); if (p == null || a.Args?.Length < 1) return;
+            var p = a.Player(); if (p == null || !IsAllowed(p) || a.Args?.Length < 1) return;
             int cmd = Convert.ToInt32(a.Args[0]);
             switch (cmd)
             {
@@ -680,9 +680,9 @@ namespace Oxide.Plugins
                 case 9: WipePlayerPerms(); ShowMsg(p, "Player Perms Wiped"); break;
             }
         }
-        #endregion
+#endregion
 
-        #region Data Operations
+#region Data Operations
         void DoBackup(bool save, bool groups)
         {
             permission.SaveData();
@@ -752,7 +752,113 @@ namespace Oxide.Plugins
                     if (!allPerms.Contains(pm)) permission.RevokeUserPermission(u.Key, pm);
             permission.SaveData();
         }
-        #endregion
+#endregion
+#region Localization
+        private class Lang
+        {
+            public const string NoPermission = "NoPermission";
+            public const string Title = "Title";
+            public const string ViewPlayers = "ViewPlayers";
+            public const string ViewGroups = "ViewGroups";
+            public const string AllPlayers = "AllPlayers";
+            public const string AllGroups = "AllGroups";
+            public const string Back = "Back";
+            public const string RevokeAll = "RevokeAll";
+            public const string GrantAll = "GrantAll";
+            public const string Groups = "Groups";
+            public const string Players = "Players";
+            public const string Inherited = "Inherited";
+            public const string Granted = "Granted";
+            public const string Revoked = "Revoked";
+            public const string GroupsFor = "GroupsFor";
+            public const string PlayersIn = "PlayersIn";
+            public const string RemoveFromAll = "RemoveFromAll";
+            public const string RemoveAllPlayers = "RemoveAllPlayers";
+            public const string DataTitle = "DataTitle";
+            public const string LocalBackup = "LocalBackup";
+            public const string Save = "Save";
+            public const string Load = "Load";
+            public const string WipeBackup = "WipeBackup";
+            public const string PurgeTitle = "PurgeTitle";
+            public const string PurgeGroups = "PurgeGroups";
+            public const string PurgePlayers = "PurgePlayers";
+            public const string GlobalRemove = "GlobalRemove";
+            public const string EmptyAllGroups = "EmptyAllGroups";
+            public const string DeleteAllGroups = "DeleteAllGroups";
+            public const string WipePlayerPerms = "WipePlayerPerms";
+            public const string MsgGroupsSaved = "MsgGroupsSaved";
+            public const string MsgPlayersSaved = "MsgPlayersSaved";
+            public const string MsgGroupsLoaded = "MsgGroupsLoaded";
+            public const string MsgPlayersLoaded = "MsgPlayersLoaded";
+            public const string MsgBackupWiped = "MsgBackupWiped";
+            public const string MsgGroupsPurged = "MsgGroupsPurged";
+            public const string MsgPlayersPurged = "MsgPlayersPurged";
+            public const string MsgGroupsEmptied = "MsgGroupsEmptied";
+            public const string MsgGroupsDeleted = "MsgGroupsDeleted";
+            public const string MsgPlayerPermsWiped = "MsgPlayerPermsWiped";
+            public const string MsgNoGroup = "MsgNoGroup";
+            public const string MsgNoPlayer = "MsgNoPlayer";
+            public const string MsgAddedTo = "MsgAddedTo";
+            public const string MsgRemovedFrom = "MsgRemovedFrom";
+            public const string MsgAllRevoked = "MsgAllRevoked";
+            public const string MsgRemovedFromGroups = "MsgRemovedFromGroups";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.NoPermission] = "You need auth level 2 or permission.",
+                [Lang.Title] = "NWG PERMISSIONS MANAGER",
+                [Lang.ViewPlayers] = "View All Players",
+                [Lang.ViewGroups] = "View All Groups",
+                [Lang.AllPlayers] = "All Players",
+                [Lang.AllGroups] = "All Groups",
+                [Lang.Back] = "Back",
+                [Lang.RevokeAll] = "Revoke All",
+                [Lang.GrantAll] = "Grant All",
+                [Lang.Groups] = "Groups",
+                [Lang.Players] = "Players",
+                [Lang.Inherited] = "Inherited",
+                [Lang.Granted] = "Granted",
+                [Lang.Revoked] = "Revoked",
+                [Lang.GroupsFor] = "Groups for {0}",
+                [Lang.PlayersIn] = "Players in {0}",
+                [Lang.RemoveFromAll] = "Remove From All",
+                [Lang.RemoveAllPlayers] = "Remove All Players",
+                [Lang.DataTitle] = "NWG PERMS - DATA MANAGEMENT",
+                [Lang.LocalBackup] = "LOCAL DATA BACKUP",
+                [Lang.Save] = "Save:",
+                [Lang.Load] = "Load:",
+                [Lang.WipeBackup] = "Wipe Local Backup",
+                [Lang.PurgeTitle] = "PURGE UNLOADED PERMISSIONS",
+                [Lang.PurgeGroups] = "Purge Groups",
+                [Lang.PurgePlayers] = "Purge Players",
+                [Lang.GlobalRemove] = "GLOBAL REMOVE (DANGER)",
+                [Lang.EmptyAllGroups] = "Empty All Groups",
+                [Lang.DeleteAllGroups] = "Delete All Groups",
+                [Lang.WipePlayerPerms] = "Wipe All Player Permissions",
+                [Lang.MsgGroupsSaved] = "Groups Saved",
+                [Lang.MsgPlayersSaved] = "Players Saved",
+                [Lang.MsgGroupsLoaded] = "Groups Loaded",
+                [Lang.MsgPlayersLoaded] = "Players Loaded",
+                [Lang.MsgBackupWiped] = "Backup Wiped",
+                [Lang.MsgGroupsPurged] = "Groups Purged",
+                [Lang.MsgPlayersPurged] = "Players Purged",
+                [Lang.MsgGroupsEmptied] = "Groups Emptied",
+                [Lang.MsgGroupsDeleted] = "Groups Deleted",
+                [Lang.MsgPlayerPermsWiped] = "Player Perms Wiped",
+                [Lang.MsgNoGroup] = "No group selected.",
+                [Lang.MsgNoPlayer] = "No player selected.",
+                [Lang.MsgAddedTo] = "Added to {0}",
+                [Lang.MsgRemovedFrom] = "Removed from {0}",
+                [Lang.MsgAllRevoked] = "All permissions revoked.",
+                [Lang.MsgRemovedFromGroups] = "Removed from {0} groups"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
     }
 }
 

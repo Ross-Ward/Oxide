@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -8,18 +8,22 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NWGCore", "NWG Team", "3.0.0")]
+    [Info("NWGCore", "NWG Team", "3.1.0")]
     [Description("Central Hub for NWG Plugin Suite. Provides performance services and shared infrastructure.")]
     public class NWGCore : RustPlugin
     {
-        #region Static Access
+#region Static Access
         public static NWGCore Instance { get; private set; }
+        
+        // Configuration Constants
+        public const string AdminPermission = "nwgcore.admin";
+        public const string PluginPrefix = "<color=#b7d092>[NWG]</color>";
         
         // Public API for other plugins to access services
         public T GetService<T>() where T : class => ServiceContainer.Get<T>();
-        #endregion
+#endregion
 
-        #region Service Container
+#region Service Container
         public class ServiceContainer
         {
             private static readonly Dictionary<Type, object> _services = new Dictionary<Type, object>();
@@ -43,9 +47,9 @@ namespace Oxide.Plugins
             
             public static IEnumerable<object> GetAll() => _services.Values;
         }
-        #endregion
+#endregion
 
-        #region Interfaces
+#region Interfaces
         public interface IService
         {
             void OnServerInitialized();
@@ -57,9 +61,9 @@ namespace Oxide.Plugins
             int GetCount<T>() where T : BaseEntity;
             List<T> GetEntities<T>() where T : BaseEntity;
         }
-        #endregion
+#endregion
 
-        #region Services Implementation
+#region Services Implementation
 
         /// <summary>
         /// High-Performance Entity Tracker. 
@@ -156,9 +160,9 @@ namespace Oxide.Plugins
             }
         }
 
-        #endregion
+#endregion
 
-        #region Plugin Lifecycle
+#region Plugin Lifecycle
 
         private void Init()
         {
@@ -168,7 +172,7 @@ namespace Oxide.Plugins
             // Register Services
             ServiceContainer.Register<IEntityTracker>(new EntityTrackerService());
             
-            permission.RegisterPermission("nwgcore.admin", this);
+            permission.RegisterPermission(AdminPermission, this);
             Puts("[NWG Core] Services Registered.");
         }
 
@@ -189,10 +193,10 @@ namespace Oxide.Plugins
 
             // Ensure admin group has root permission
             if (!permission.GroupExists("admin")) permission.CreateGroup("admin", "Default Admin Group", 0);
-            if (!permission.GroupHasPermission("admin", "nwgcore.admin"))
+            if (!permission.GroupHasPermission("admin", AdminPermission))
             {
-                permission.GrantGroupPermission("admin", "nwgcore.admin", this);
-                Puts("[NWG Core] Granted 'nwgcore.admin' to 'admin' group.");
+                permission.GrantGroupPermission("admin", AdminPermission, this);
+                Puts($"[NWG Core] Granted '{AdminPermission}' to 'admin' group.");
             }
             
             Puts($"[NWG Core] Ready. Tracker monitoring {GetEntityStatusString()}");
@@ -208,45 +212,40 @@ namespace Oxide.Plugins
             Instance = null;
         }
 
-        #endregion
+#endregion
 
-        #region Hooks (Event Wiring)
+#region Hooks (Event Wiring)
 
         // Sync native Rust admins to Oxide Groups/Permissions
         private void OnPlayerConnected(BasePlayer player)
         {
-            
+            if (player == null) return;
 
-            if (player.IsAdmin || player.IsDeveloper )
+            if (player.IsAdmin || player.IsDeveloper)
             {
-                if (!player.IsAdmin ) 
+                // Ensure native admin flag
+                if (!player.HasPlayerFlag(BasePlayer.PlayerFlags.IsAdmin))
                 {
                     player.SetPlayerFlag(BasePlayer.PlayerFlags.IsAdmin, true);
                     player.SendNetworkUpdate();
-                    Puts($"[NWG Core] Force-granted native admin to {player.displayName} ({player.UserIDString})");
                 }
 
-                // Ensure they are in the oxide 'admin' group
+                // Ensure Oxide 'admin' group membership
                 if (!permission.UserHasGroup(player.UserIDString, "admin"))
                 {
                     permission.AddUserGroup(player.UserIDString, "admin");
-                    Puts($"[NWG Core] Auto-added native admin {player.displayName} to Oxide 'admin' group.");
                 }
 
-                // Ensure they have the core override permission
-                if (!permission.UserHasPermission(player.UserIDString, "nwgcore.admin"))
+                // Ensure core NWG admin permission
+                if (!permission.UserHasPermission(player.UserIDString, AdminPermission))
                 {
-                    permission.GrantUserPermission(player.UserIDString, "nwgcore.admin", this);
-                    Puts($"[NWG Core] Auto-granted 'nwgcore.admin' to native admin {player.displayName}.");
+                    permission.GrantUserPermission(player.UserIDString, AdminPermission, this);
                 }
             }
         
-            // Entity Tracking
-            if (player is BaseEntity baseEntity)
-            {
-                 var tracker = ServiceContainer.Get<EntityTrackerService>();
-                 tracker?.RegisterEntity(baseEntity);
-            }
+            // Entity Tracking (BasePlayer is a BaseEntity)
+            var tracker = ServiceContainer.Get<EntityTrackerService>();
+            tracker?.RegisterEntity(player);
         }
 
         private void OnEntitySpawned(BaseNetworkable entity)
@@ -267,9 +266,9 @@ namespace Oxide.Plugins
             }
         }
 
-        #endregion
+#endregion
 
-        #region Helpers
+#region Helpers
 
         private string GetEntityStatusString()
         {
@@ -282,9 +281,60 @@ namespace Oxide.Plugins
                    $"Drops: {tracker.GetCount<SupplyDrop>()}";
         }
 
-        #endregion
+#endregion
+
+#region Lang & Config Helpers
         
-        #region API Accessors (For External Plugins using Call())
+        [HookMethod("FormatMessage")]
+        public string API_FormatMessage(string message)
+        {
+            return $"{PluginPrefix} {message}";
+        }
+
+        [HookMethod("SendColoredMessage")]
+        public void API_SendColoredMessage(BasePlayer player, string message)
+        {
+            player?.ChatMessage(API_FormatMessage(message));
+        }
+
+        // Shared Config pattern interface
+        public interface INWGConfig
+        {
+            void SetDefaults();
+        }
+
+#endregion
+        
+#region UI Theme
+        public static class Theme
+        {
+            public const string Primary = "0.718 0.816 0.573 1";   // Sage Green #b7d092
+            public const string Secondary = "0.851 0.325 0.31 1"; // Red/Rust #d9534f
+            public const string Accent = "1 0.647 0 1";           // Orange #FFA500
+            public const string Panel = "0.15 0.15 0.15 0.98";    // Dark Background
+            public const string Text = "0.867 0.867 0.867 1";     // Soft White #DDDDDD
+            
+            public static Dictionary<string, string> GetThemeDict()
+            {
+                return new Dictionary<string, string>
+                {
+                    ["Primary"] = Primary,
+                    ["Secondary"] = Secondary,
+                    ["Accent"] = Accent,
+                    ["Panel"] = Panel,
+                    ["Text"] = Text
+                };
+            }
+        }
+#endregion
+
+#region API Accessors (For External Plugins using Call())
+        
+        [HookMethod("GetTheme")]
+        public Dictionary<string, string> API_GetTheme()
+        {
+            return Theme.GetThemeDict();
+        }
         
         // Example: int count = (int)NWGCore.Call("GetEntityCount", "BradleyAPC");
         [HookMethod("GetEntityCount")]
@@ -302,9 +352,55 @@ namespace Oxide.Plugins
                 default: return 0;
             }
         }
+
+        [HookMethod("GetEntities")]
+        public List<BaseEntity> API_GetEntities(string typeName)
+        {
+            var tracker = ServiceContainer.Get<IEntityTracker>();
+            if (tracker == null) return new List<BaseEntity>();
+            
+            switch (typeName.ToLower())
+            {
+                case "bradleyapc": return tracker.GetEntities<BradleyAPC>().Cast<BaseEntity>().ToList();
+                case "patrolhelicopter": return tracker.GetEntities<PatrolHelicopter>().Cast<BaseEntity>().ToList();
+                case "cargoplane": return tracker.GetEntities<CargoPlane>().Cast<BaseEntity>().ToList();
+                case "supplydrop": return tracker.GetEntities<SupplyDrop>().Cast<BaseEntity>().ToList();
+                default: return new List<BaseEntity>();
+            }
+        }
+
+        [HookMethod("GetGrid")]
+        public string API_GetGrid(Vector3 pos)
+        {
+            return GetGrid(pos);
+        }
         
-        #endregion
+        [HookMethod("GetGridRef")]
+        public string API_GetGridRef(Vector3 pos)
+        {
+             return GetGrid(pos);
+        }
+
+        public string GetGrid(Vector3 pos)
+        {
+            float worldSize = ConVar.Server.worldsize;
+            float offset = worldSize / 2f;
+            const float cellSize = 150f;
+            int maxCell = (int)(worldSize / cellSize) - 1;
+            int x = Mathf.Clamp(Mathf.FloorToInt((pos.x + offset) / cellSize), 0, maxCell);
+            int z = Mathf.Clamp(Mathf.FloorToInt((pos.z + offset) / cellSize), 0, maxCell);
+            
+            string col = "";
+            int cx = x;
+            do
+            {
+                col = (char)('A' + cx % 26) + col;
+                cx = cx / 26 - 1;
+            } while (cx >= 0);
+            
+            return $"{col}{z}";
+        }
+        
+#endregion
     }
 }
-
-

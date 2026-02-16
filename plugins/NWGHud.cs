@@ -1,4 +1,4 @@
-using Oxide.Core;
+﻿using Oxide.Core;
 using Oxide.Core.Plugins;
 using Oxide.Plugins;
 using Oxide.Game.Rust.Cui;
@@ -12,13 +12,14 @@ namespace Oxide.Plugins
     [Description("Clean top HUD bar below compass showing player identity, clan, grid, bearing, time, and balance.")]
     public class NWGHud : RustPlugin
     {
-        #region References
+#region References
         [PluginReference] private Plugin NWGCore;
         [PluginReference] private Plugin NWGClans;
+        [PluginReference] private Plugin NWGSkills;
         [PluginReference] private Plugin Economics;
-        #endregion
+#endregion
 
-        #region Configuration
+#region Configuration
         private class PluginConfig
         {
             public float UpdateInterval = 1.0f;
@@ -37,15 +38,15 @@ namespace Oxide.Plugins
             public string SeparatorColor = "#555555";   // Dim separator
         }
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region State
+#region State
         private const string LayerName = "NWG_HUD_UI";
         private Timer _hudTimer;
         private readonly HashSet<ulong> _activePlayers = new HashSet<ulong>();
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -73,6 +74,27 @@ namespace Oxide.Plugins
             _config = new PluginConfig();
             SaveConfig();
         }
+
+#region Localization
+        public static class Lang
+        {
+            public const string Grid = "Grid";
+            public const string Level = "Level";
+            public const string Online = "Online";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.Grid] = "GRID",
+                [Lang.Level] = "LVL",
+                [Lang.Online] = "online"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
 
         private void OnServerInitialized()
         {
@@ -105,9 +127,9 @@ namespace Oxide.Plugins
         {
             _activePlayers.Remove(player.userID);
         }
-        #endregion
+#endregion
 
-        #region HUD Drawing
+#region HUD Drawing
         private void UpdateAllHuds()
         {
             foreach (var player in BasePlayer.activePlayerList)
@@ -122,7 +144,7 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, LayerName);
             var container = new CuiElementContainer();
 
-            // ── Root panel: sits just below the compass ──
+            // â”€â”€ Root panel: sits just below the compass â”€â”€
             // Compass occupies roughly 0.35-0.65 horizontally, top ~0.96-1.0
             // We position our bar at the same width, just beneath it
             container.Add(new CuiPanel
@@ -132,7 +154,7 @@ namespace Oxide.Plugins
                 CursorEnabled = false
             }, "Overlay", LayerName);
 
-            // ── Build the single-line content ──
+            // â”€â”€ Build the single-line content â”€â”€
             string line = BuildLine(player);
 
             container.Add(new CuiLabel
@@ -152,90 +174,49 @@ namespace Oxide.Plugins
 
         private string BuildLine(BasePlayer player)
         {
-            var sep = $" <color={_config.SeparatorColor}>│</color> ";
+            var sep = $" <color={_config.SeparatorColor}>â”‚</color> ";
             var parts = new List<string>();
 
-            // ── Player identity: Name + Clan ──
-            if (_config.ShowPlayerName || _config.ShowClan)
-            {
-                string identity = "";
-                string clanTag = GetClanTag(player.userID);
+            // â”€â”€ Player identity: Name + Clan â”€â”€
+            string identity = "";
+            string clanTag = GetClanTag(player.userID);
+            if (!string.IsNullOrEmpty(clanTag)) identity += $"<color={_config.ClanColor}>[{clanTag}]</color> ";
+            identity += $"<color={_config.TextColor}>{player.displayName}</color>";
+            parts.Add(identity.Trim());
 
-                if (_config.ShowClan && !string.IsNullOrEmpty(clanTag))
-                {
-                    identity += $"<color={_config.ClanColor}>[{clanTag}]</color> ";
-                }
-                if (_config.ShowPlayerName)
-                {
-                    identity += $"<color={_config.TextColor}>{player.displayName}</color>";
-                }
-                parts.Add(identity.Trim());
-            }
+            // â”€â”€ Grid position â”€â”€
+            string grid = NWGCore?.Call<string>("GetGrid", player.transform.position) ?? "???";
+            parts.Add($"<color={_config.AccentColor}>{GetMessage(Lang.Grid, player.UserIDString)}</color> {grid}");
 
-            // ── Grid position ──
-            if (_config.ShowGrid)
-            {
-                parts.Add($"<color={_config.AccentColor}>GRID</color> {GetGrid(player.transform.position)}");
-            }
-
-            // ── Compass bearing ──
-            if (_config.ShowBearing)
-            {
-                float yaw = player.eyes.rotation.eulerAngles.y;
-                parts.Add($"<color={_config.AccentColor}>{GetCardinal(yaw)}</color> {yaw:0}°");
-            }
-
-            // ── In-game time ──
-            if (_config.ShowTime && TOD_Sky.Instance != null)
-            {
-                int hours = (int)TOD_Sky.Instance.Cycle.Hour;
-                int minutes = (int)((TOD_Sky.Instance.Cycle.Hour % 1) * 60);
-                parts.Add($"<color={_config.AccentColor}>{hours:00}:{minutes:00}</color>");
-            }
-
-            // ── Balance ──
-            if (_config.ShowBalance && Economics != null && Economics.IsLoaded)
+            // â”€â”€ Balance â”€â”€
+            if (Economics != null && Economics.IsLoaded)
             {
                 var bal = Economics.Call("Balance", player.UserIDString);
-                if (bal != null)
-                    parts.Add($"<color={_config.AccentColor}>$</color>{bal:N0}");
+                if (bal != null) parts.Add($"<color={_config.AccentColor}>$</color>{Convert.ToDouble(bal):N0}");
             }
 
-            // ── Online players ──
-            if (_config.ShowOnlinePlayers)
+            // â”€â”€ Player Level â”€â”€
+            if (NWGSkills != null && NWGSkills.IsLoaded)
             {
-                parts.Add($"<color={_config.AccentColor}>{BasePlayer.activePlayerList.Count}</color> online");
+                var level = NWGSkills.Call("GetLevel", player.userID);
+                parts.Add($"<color={_config.AccentColor}>{GetMessage(Lang.Level, player.UserIDString)}</color> {level ?? 1}");
             }
+
+            // â”€â”€ Online players â”€â”€
+            parts.Add($"<color={_config.AccentColor}>{BasePlayer.activePlayerList.Count}</color> {GetMessage(Lang.Online, player.UserIDString)}");
 
             return string.Join(sep, parts);
         }
-        #endregion
+#endregion
 
-        #region Helpers
+#region Helpers
         private string GetClanTag(ulong playerId)
         {
             if (NWGClans == null || !NWGClans.IsLoaded) return null;
             return NWGClans.Call<string>("GetClanTag", playerId);
         }
 
-        private string GetGrid(Vector3 pos)
-        {
-            float worldSize = ConVar.Server.worldsize;
-            float offset = worldSize / 2f;
-            const float cellSize = 150f;
-            int maxCell = (int)(worldSize / cellSize) - 1;
-            int x = Mathf.Clamp(Mathf.FloorToInt((pos.x + offset) / cellSize), 0, maxCell);
-            int z = Mathf.Clamp(Mathf.FloorToInt((pos.z + offset) / cellSize), 0, maxCell);
-            // Convert x to letter(s): 0=A, 25=Z, 26=AA, etc.
-            string col = "";
-            int cx = x;
-            do
-            {
-                col = (char)('A' + cx % 26) + col;
-                cx = cx / 26 - 1;
-            } while (cx >= 0);
-            return $"{col}{z}";
-        }
+
 
         private string GetCardinal(float yaw)
         {
@@ -257,7 +238,7 @@ namespace Oxide.Plugins
             object result = NWGCore.Call("GetEntityCount", type);
             return result is int count ? count : 0;
         }
-        #endregion
+#endregion
     }
 }
 

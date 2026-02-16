@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -12,7 +12,7 @@ namespace Oxide.Plugins
     [Description("Optimized Smelting Controller and Furnace Splitter.")]
     public class NWGProduction : RustPlugin
     {
-        #region Configuration
+#region Configuration
         private class PluginConfig
         {
             public float GlobalSpeedMultiplier = 2.0f;
@@ -28,9 +28,9 @@ namespace Oxide.Plugins
             };
         }
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -59,10 +59,28 @@ namespace Oxide.Plugins
             SaveConfig();
         }
 
-        protected override void SaveConfig() => Config.WriteObject(_config);
-        #endregion
 
-        #region Smelting Controller
+        protected override void SaveConfig() => Config.WriteObject(_config);
+#endregion
+
+#region Localization
+        public static class Lang
+        {
+            public const string ConfigReloaded = "ConfigReloaded";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.ConfigReloaded] = "<color=#b7d092>[NWG]</color> Config reloaded."
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+#region Smelting Controller
         // Hook called by the engine when an oven cooks
         private object OnOvenCook(BaseOven oven, Item fuel)
         {
@@ -155,9 +173,9 @@ namespace Oxide.Plugins
                  }
             }
         }
-        #endregion
+#endregion
 
-        #region Splitter Logic
+#region Splitter Logic
         // Hook: Called when an item is moved within/into an inventory
         private object CanMoveItem(Item item, PlayerInventory playerInventory, ItemContainerId targetContainerId, int targetSlot, int amount)
         {
@@ -217,7 +235,7 @@ namespace Oxide.Plugins
         {
             if (arg.Player() != null && !arg.Player().IsAdmin) return;
             LoadConfigVariables();
-            arg.ReplyWith("[NWG Production] Config reloaded.");
+            arg.ReplyWith(GetMessage(Lang.ConfigReloaded, arg.Player()?.UserIDString));
         }
 
         private void SplitOres(BaseOven oven)
@@ -275,7 +293,7 @@ namespace Oxide.Plugins
                 }
             }
         }
-        #endregion
+#endregion
     }
 }
 
