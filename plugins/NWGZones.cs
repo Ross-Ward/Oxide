@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -13,16 +13,16 @@ namespace Oxide.Plugins
     [Description("Zone Management for NWG. PVP/PVE/Safe zones.")]
     public class NWGZones : RustPlugin
     {
-        #region Config
+#region Config
         private class PluginConfig
         {
             public bool UseSafeZoneTrigger = true;
             public float CheckInterval = 1.0f;
         }
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Data
+#region Data
         private class ZoneData
         {
             public string ID;
@@ -33,12 +33,12 @@ namespace Oxide.Plugins
         }
         
         private Dictionary<string, ZoneData> _zones;
-        #endregion
+#endregion
 
-        #region Fields
+#region Fields
         private Timer _checkTimer;
         private Dictionary<ulong, HashSet<string>> _playerZones = new Dictionary<ulong, HashSet<string>>();
-        #endregion
+#endregion
 
         private class SerializableVector3
         {
@@ -47,7 +47,7 @@ namespace Oxide.Plugins
             public Vector3 ToVector3() => new Vector3(x, y, z);
         }
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -102,11 +102,30 @@ namespace Oxide.Plugins
         {
              Interface.Oxide.DataFileSystem.WriteObject("NWG_Zones", _zones);
         }
-        #endregion
+#endregion
 
-        #region Zone Logic
+#region Zone Logic
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                ["EnteredZone"] = "<color=#b7d092>Entered Zone: {0}</color>",
+                ["LeftZone"] = "<color=#d9534f>Left Zone: {0}</color>",
+                ["ZoneCreated"] = "Zone <color=#FFA500>{0}</color> created at your position.",
+                ["FlagRemoved"] = "Flag <color=#d9534f>{0}</color> removed from {1}.",
+                ["FlagAdded"] = "Flag <color=#b7d092>{0}</color> added to {1}.",
+                ["ZoneRemoved"] = "Zone <color=#FFA500>{0}</color> removed.",
+                ["ZoneList"] = "<color=#FFA500>ID: {0}</color>, Name: {1}, R: {2}, Flags: {3}",
+                ["Usage"] = "<color=#b7d092>[NWG]</color> Usage: /zone <add|remove|list|flags> [id] [flag]"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+
         private void CheckZones()
         {
+            // Optimization: Grid-based hashing or spatial partitioning would be better for high counts.
+            // For now, simple optimization: sqrMagnitude checks.
             foreach(var player in BasePlayer.activePlayerList)
             {
                 UpdatePlayerZones(player);
@@ -158,7 +177,7 @@ namespace Oxide.Plugins
         {
             if (zone.Flags.Contains("msg_enter"))
             {
-                SendReply(player, $"<color=green>Entered Zone: {zone.Name}</color>");
+                SendReply(player, GetMessage("EnteredZone", player.UserIDString, zone.Name));
             }
             if (zone.Flags.Contains("safe"))
             {
@@ -172,7 +191,7 @@ namespace Oxide.Plugins
         {
              if (zone.Flags.Contains("msg_leave"))
             {
-                SendReply(player, $"<color=red>Left Zone: {zone.Name}</color>");
+                SendReply(player, GetMessage("LeftZone", player.UserIDString, zone.Name));
             }
              if (zone.Flags.Contains("safe"))
             {
@@ -181,9 +200,9 @@ namespace Oxide.Plugins
              
              Interface.CallHook("OnExitZone", zone.ID, player);
         }
-        #endregion
+#endregion
 
-        #region Flags / Hooks
+#region Flags / Hooks
         [HookMethod("HasPlayerFlag")]
         public bool HasPlayerFlag(BasePlayer player, string flag)
         {
@@ -214,14 +233,14 @@ namespace Oxide.Plugins
                 if (HasPlayerFlag(player, "nopvp") || HasPlayerFlag(player, "god"))
                 {
                     if (info.damageTypes.GetMajorityDamageType() == DamageType.Suicide) return null;
-                    return true; 
+                    return false; 
                 }
             }
             else
             {
                 if (HasFlag(entity.transform.position, "pve") || HasFlag(entity.transform.position, "undestr"))
                 {
-                    return true;
+                    return false;
                 }
             }
 
@@ -242,21 +261,21 @@ namespace Oxide.Plugins
         {
             if (HasFlag(entity.transform.position, "nodecay"))
             {
-                return true;
+                return false;
             }
             return null;
         }
 
-        #endregion
+#endregion
 
-        #region Commands
+#region Commands
         [ChatCommand("zone")]
         private void CmdZone(BasePlayer player, string command, string[] args)
         {
             if (!player.IsAdmin) return;
             if (args.Length == 0)
             {
-                player.ChatMessage("Usage: /zone [add|remove|list|flags] ...");
+                SendReply(player, GetMessage("Usage", player.UserIDString));
                 return;
             }
 
@@ -274,7 +293,7 @@ namespace Oxide.Plugins
                     Location = new SerializableVector3(player.transform.position),
                     Radius = 20f
                 };
-                player.ChatMessage($"Zone {id} created at your position.");
+                SendReply(player, GetMessage("ZoneCreated", player.UserIDString, id));
             }
             else if (op == "flags")
             {
@@ -287,12 +306,12 @@ namespace Oxide.Plugins
                     if (zone.Flags.Contains(flag))
                     {
                         zone.Flags.Remove(flag);
-                        player.ChatMessage($"Flag {flag} removed from {id}.");
+                        SendReply(player, GetMessage("FlagRemoved", player.UserIDString, flag, id));
                     }
                     else
                     {
                         zone.Flags.Add(flag);
-                        player.ChatMessage($"Flag {flag} added to {id}.");
+                        SendReply(player, GetMessage("FlagAdded", player.UserIDString, flag, id));
                     }
                 }
             }
@@ -300,17 +319,17 @@ namespace Oxide.Plugins
             {
                  if (args.Length < 2) return;
                  string id = args[1];
-                 if (_zones.Remove(id)) player.ChatMessage("Zone removed.");
+                 if (_zones.Remove(id)) SendReply(player, GetMessage("ZoneRemoved", player.UserIDString, id));
             }
             else if (op == "list")
             {
                 foreach(var z in _zones.Values)
                 {
-                    player.ChatMessage($"ID: {z.ID}, Name: {z.Name}, R: {z.Radius}, Flags: {string.Join(",", z.Flags)}");
+                    SendReply(player, GetMessage("ZoneList", player.UserIDString, z.ID, z.Name, z.Radius, string.Join(",", z.Flags)));
                 }
             }
         }
-        #endregion
+#endregion
     }
 }
 

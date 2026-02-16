@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -14,11 +14,34 @@ namespace Oxide.Plugins
     [Description("In-game Shop and Economy for NWG with ImageLibrary integration.")]
     public class NWGMarket : RustPlugin
     {
-        #region References
+#region References
         [PluginReference] private Plugin ImageLibrary;
-        #endregion
+#endregion
 
-        #region Config
+#region UI Constants
+        private static class UIConstants
+        {
+            // Theme: Sage Green & Dark
+            public const string PanelColor = "0.15 0.15 0.15 0.98"; 
+            public const string HeaderColor = "0.1 0.1 0.1 1"; 
+            public const string Primary = "0.718 0.816 0.573 1"; // Sage Green
+            public const string Secondary = "0.851 0.325 0.31 1"; // Red/Rust
+            public const string Accent = "1 0.647 0 1"; // Orange
+            public const string Text = "0.867 0.867 0.867 1"; // Soft White
+            
+            public const string OverlayColor = "0.05 0.05 0.05 0.98";
+            
+            public const string ButtonInactive = "0.15 0.15 0.15 0.7";
+            public const string ButtonActive = "0.718 0.816 0.573 0.8"; // Sage Green Transparent
+            
+            public const string BuyButton = "0.3 0.5 0.2 0.8"; 
+            public const string SellButton = "0.7 0.2 0.2 0.8"; 
+            public const string SellAllButton = "0.851 0.325 0.31 0.9"; // Red/Rust
+            public const string ItemPanel = "0.1 0.1 0.1 0.6";
+        }
+#endregion
+
+#region Config
         private class PluginConfig
         {
             public double StartingBalance = 2500.0;
@@ -48,18 +71,21 @@ namespace Oxide.Plugins
         }
 
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Data
+#region Data
         private class StoredData
         {
             public Dictionary<ulong, double> Balances = new Dictionary<ulong, double>();
         }
 
         private StoredData _data;
-        #endregion
+        private readonly Dictionary<string, ItemDefinition> _itemDefCache = new Dictionary<string, ItemDefinition>();
+        // Key: PlayerID, Value: Search Term
+        private readonly Dictionary<ulong, string> _searchFilters = new Dictionary<ulong, string>();
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -149,9 +175,15 @@ namespace Oxide.Plugins
 
         private void OnServerSave() => SaveData();
         private void SaveData() => Interface.Oxide.DataFileSystem.WriteObject("NWG_Market", _data);
-        #endregion
+        
+        private void OnPlayerDisconnected(BasePlayer player)
+        {
+            if (player == null) return;
+            _searchFilters.Remove(player.userID);
+        }
+#endregion
 
-        #region Economy Hook API
+#region Economy Hook API
         [HookMethod("Balance")]
         public double Balance(ulong playerId) => _data.Balances.TryGetValue(playerId, out var bal) ? bal : _config.StartingBalance;
 
@@ -171,12 +203,12 @@ namespace Oxide.Plugins
             _data.Balances[playerId] = Balance(playerId) + amount;
             return true;
         }
-        #endregion
+#endregion
 
-        #region Commands
+#region Commands
         private void CmdShop(BasePlayer player) => ShowCategory(player, 0);
         
-        private void CmdBalance(BasePlayer player) => SendReply(player, $"Balance: {_config.CurrencySymbol}{Balance(player.userID):N2}");
+        private void CmdBalance(BasePlayer player) => SendReply(player, GetMessage(Lang.Balance, player.UserIDString, _config.CurrencySymbol, Balance(player.userID)));
 
         [ConsoleCommand("market.buy")]
         private void ConsoleBuy(ConsoleSystem.Arg arg)
@@ -189,17 +221,29 @@ namespace Oxide.Plugins
             if (catIdx < 0 || catIdx >= _config.Categories.Count) return;
             var item = _config.Categories[catIdx].Items[itemIdx];
 
+            // Verify item exists
+            var def = GetItemDef(item.ShortName);
+            if (def == null)
+            {
+                // Item invalid/removed from game
+                return;
+            }
+
             if (Withdraw(player.userID, item.BuyPrice))
             {
-                var giveItem = ItemManager.CreateByName(item.ShortName, item.Amount, item.SkinId);
+                var giveItem = ItemManager.Create(def, item.Amount, item.SkinId);
                 if (giveItem != null)
                 {
                     player.GiveItem(giveItem);
-                    SendReply(player, $"Purchased {item.Amount}x {item.ShortName}");
+                    SendReply(player, GetMessage(Lang.Purchased, player.UserIDString, item.Amount, item.ShortName));
                 }
-                else Deposit(player.userID, item.BuyPrice); // Refund
+                else
+                {
+                    Deposit(player.userID, item.BuyPrice); // Refund
+                    // Log error?
+                }
             }
-            else SendReply(player, "Insufficient funds.");
+            else SendReply(player, GetMessage(Lang.InsufficientFunds, player.UserIDString));
             
             ShowCategory(player, catIdx);
         }
@@ -213,14 +257,18 @@ namespace Oxide.Plugins
             int itemIdx = arg.GetInt(1);
 
             var item = _config.Categories[catIdx].Items[itemIdx];
-            var def = ItemManager.FindItemDefinition(item.ShortName);
+            var def = GetItemDef(item.ShortName);
             if (def == null) return;
 
             if (player.inventory.GetAmount(def.itemid) >= item.Amount)
             {
                 player.inventory.Take(null, def.itemid, item.Amount);
                 Deposit(player.userID, item.SellPrice);
-                SendReply(player, $"Sold {item.Amount}x {item.ShortName}");
+                SendReply(player, GetMessage(Lang.Sold, player.UserIDString, item.Amount, item.ShortName));
+            }
+            else
+            {
+                SendReply(player, GetMessage(Lang.NotEnoughItems, player.UserIDString, item.DisplayName ?? item.ShortName));
             }
             ShowCategory(player, catIdx);
         }
@@ -246,7 +294,7 @@ namespace Oxide.Plugins
             foreach (var item in cat.Items)
             {
                 if (item.SellPrice <= 0) continue;
-                var def = ItemManager.FindItemDefinition(item.ShortName);
+                var def = GetItemDef(item.ShortName);
                 if (def == null) continue;
 
                 int available = player.inventory.GetAmount(def.itemid);
@@ -263,11 +311,11 @@ namespace Oxide.Plugins
             if (totalEarned > 0)
             {
                 Deposit(player.userID, totalEarned);
-                SendReply(player, $"Sold {totalSold} items for {_config.CurrencySymbol}{totalEarned:N0}");
+                SendReply(player, GetMessage(Lang.SoldBulk, player.UserIDString, totalSold, _config.CurrencySymbol, totalEarned));
             }
             else
             {
-                SendReply(player, "Nothing to sell in this category.");
+                SendReply(player, GetMessage(Lang.NothingToSell, player.UserIDString));
             }
 
             ShowCategory(player, catIdx);
@@ -287,14 +335,14 @@ namespace Oxide.Plugins
 
             var item = cat.Items[itemIdx];
             if (item.SellPrice <= 0) return;
-            var def = ItemManager.FindItemDefinition(item.ShortName);
+            var def = GetItemDef(item.ShortName);
             if (def == null) return;
 
             int available = player.inventory.GetAmount(def.itemid);
             int stacks = available / item.Amount;
             if (stacks <= 0)
             {
-                SendReply(player, $"You don't have enough {item.DisplayName ?? item.ShortName} to sell.");
+                SendReply(player, GetMessage(Lang.NotEnoughItems, player.UserIDString, item.DisplayName ?? item.ShortName));
                 ShowCategory(player, catIdx);
                 return;
             }
@@ -303,12 +351,36 @@ namespace Oxide.Plugins
             player.inventory.Take(null, def.itemid, toTake);
             double earned = stacks * item.SellPrice;
             Deposit(player.userID, earned);
-            SendReply(player, $"Sold {toTake}x {item.DisplayName ?? item.ShortName} for {_config.CurrencySymbol}{earned:N0}");
+            SendReply(player, GetMessage(Lang.Sold, player.UserIDString, toTake, item.DisplayName ?? item.ShortName));
             ShowCategory(player, catIdx);
         }
-        #endregion
 
-        #region UI
+        [ConsoleCommand("market.search")]
+        private void ConsoleSearch(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player == null) return;
+            
+            string term = arg.GetString(0);
+            if (string.IsNullOrWhiteSpace(term)) _searchFilters.Remove(player.userID);
+            else _searchFilters[player.userID] = term;
+            
+            ShowCategory(player, 0); // Refresh UI, catIdx ignored in search mode mostly
+        }
+
+        [ConsoleCommand("market.clearsearch")]
+        private void ConsoleClearSearch(ConsoleSystem.Arg arg)
+        {
+            var player = arg.Player();
+            if (player != null)
+            {
+                _searchFilters.Remove(player.userID);
+                ShowCategory(player, 0);
+            }
+        }
+#endregion
+
+#region UI
         private void ShowCategory(BasePlayer player, int catIndex, int page = 0)
         {
             if (player == null) return;
@@ -316,52 +388,135 @@ namespace Oxide.Plugins
             
             var elements = new CuiElementContainer();
             var root = elements.Add(new CuiPanel {
-                Image = { Color = "0.05 0.05 0.05 0.98" },
+                Image = { Color = UIConstants.OverlayColor },
                 RectTransform = { AnchorMin = "0.1 0.1", AnchorMax = "0.9 0.9" },
                 CursorEnabled = true
             }, "Overlay", "NWG_Market_UI");
 
             // Header
-            elements.Add(new CuiPanel { Image = { Color = "0.15 0.15 0.15 1" }, RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 1" } }, root);
-            elements.Add(new CuiLabel { Text = { Text = _config.ShopTitle, FontSize = 24, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.02 0.92", AnchorMax = "0.5 1" } }, root);
-            elements.Add(new CuiLabel { Text = { Text = $"BALANCE: <color=#b7d092>{_config.CurrencySymbol}{Balance(player.userID):N0}</color>", FontSize = 18, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.5 0.92", AnchorMax = "0.9 1" } }, root);
+            elements.Add(new CuiPanel { Image = { Color = UIConstants.HeaderColor }, RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 1" } }, root);
+            elements.Add(new CuiLabel { Text = { Text = _config.ShopTitle, Color = UIConstants.Primary, FontSize = 24, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.02 0.92", AnchorMax = "0.5 1" } }, root);
+            
+            var balanceText = GetMessage(Lang.UIBalance, player.UserIDString, _config.CurrencySymbol, Balance(player.userID));
+            elements.Add(new CuiLabel { Text = { Text = balanceText, FontSize = 18, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.5 0.92", AnchorMax = "0.9 1" } }, root);
 
             // Close Button
             elements.Add(new CuiButton {
-                Button = { Command = "market.close", Color = "0.8 0.2 0.2 0.8" },
+                Button = { Command = "market.close", Color = UIConstants.Secondary },
                 RectTransform = { AnchorMin = "0.93 0.93", AnchorMax = "0.99 0.99" },
-                Text = { Text = "✕", FontSize = 20, Align = TextAnchor.MiddleCenter }
+                Text = { Text = GetMessage(Lang.UIClose, player.UserIDString), FontSize = 20, Align = TextAnchor.MiddleCenter }
             }, root);
 
             // Sidebar
             for (int i = 0; i < _config.Categories.Count; i++)
             {
                 float y = 0.85f - (i * 0.06f);
+                var btnColor = i == catIndex ? UIConstants.ButtonActive : UIConstants.ButtonInactive;
+                
                 elements.Add(new CuiButton {
-                    Button = { Command = $"market.cat {i} 0", Color = i == catIndex ? "0.4 0.6 0.2 0.8" : "0.15 0.15 0.15 0.7" },
+                    Button = { Command = $"market.cat {i} 0", Color = btnColor },
                     RectTransform = { AnchorMin = $"0.01 {y-0.05f}", AnchorMax = $"0.17 {y}" },
-                    Text = { Text = _config.Categories[i].Name.ToUpper(), FontSize = 12, Align = TextAnchor.MiddleCenter }
+                    Text = { Text = _config.Categories[i].Name.ToUpper(), Color = UIConstants.Primary, FontSize = 12, Align = TextAnchor.MiddleCenter }
                 }, root);
             }
 
             // Sell All Button (below category buttons)
             float sellAllY = 0.85f - (_config.Categories.Count * 0.06f) - 0.02f;
             elements.Add(new CuiButton {
-                Button = { Command = $"market.sellall {catIndex}", Color = "0.7 0.3 0.1 0.9" },
+                Button = { Command = $"market.sellall {catIndex}", Color = UIConstants.SellAllButton }, // Use Accent or specific SellAll color
                 RectTransform = { AnchorMin = $"0.01 {sellAllY - 0.05f}", AnchorMax = $"0.17 {sellAllY}" },
-                Text = { Text = "⚡ SELL ALL", FontSize = 12, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }
+                Text = { Text = GetMessage(Lang.UISellAll, player.UserIDString), FontSize = 12, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf" }
             }, root);
 
-            // Grid
-            var cat = _config.Categories[catIndex];
-            int perPage = 12;
-            int start = page * perPage;
-            for (int i = 0; i < Math.Min(perPage, cat.Items.Count - start); i++)
+            // Search Bar (Top Center/Right)
+            string currentSearch = _searchFilters.ContainsKey(player.userID) ? _searchFilters[player.userID] : "";
+            bool isSearching = !string.IsNullOrEmpty(currentSearch);
+
+            elements.Add(new CuiElement {
+                Parent = root,
+                Components = {
+                    new CuiInputFieldComponent { Command = "market.search", Text = currentSearch, FontSize = 12, Align = TextAnchor.MiddleLeft, CharsLimit = 20, Color = UIConstants.Text },
+                    new CuiRectTransformComponent { AnchorMin = "0.35 0.93", AnchorMax = "0.55 0.98" }
+                }
+            });
+            // Search Placeholder/Label
+            if (string.IsNullOrEmpty(currentSearch))
             {
-                var item = cat.Items[start + i];
+                elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UISearch, player.UserIDString), FontSize = 12, Align = TextAnchor.MiddleLeft, Color = "1 1 1 0.3" }, RectTransform = { AnchorMin = "0.355 0.93", AnchorMax = "0.55 0.98" } }, root);
+            }
+            // Clear Search Button
+            if (isSearching)
+            {
+                elements.Add(new CuiButton {
+                    Button = { Command = "market.clearsearch", Color = UIConstants.Secondary },
+                    RectTransform = { AnchorMin = "0.56 0.93", AnchorMax = "0.62 0.98" },
+                    Text = { Text = GetMessage(Lang.UIClear, player.UserIDString), FontSize = 12, Align = TextAnchor.MiddleCenter }
+                }, root);
+            }
+
+
+            // Grid Setup
+            List<ShopItem> displayItems;
+            if (isSearching)
+            {
+                displayItems = new List<ShopItem>();
+                foreach (var c in _config.Categories)
+                {
+                    foreach (var item in c.Items)
+                    {
+                        if ((item.DisplayName ?? item.ShortName).Contains(currentSearch, StringComparison.OrdinalIgnoreCase))
+                            displayItems.Add(item);
+                    }
+                }
+            }
+            else
+            {
+                // Safety check for category index
+                if (catIndex < 0 || catIndex >= _config.Categories.Count) catIndex = 0;
+                displayItems = _config.Categories[catIndex].Items;
+            }
+
+            int perPage = 12;
+            int maxPage = (int)Math.Ceiling((double)displayItems.Count / perPage) - 1;
+            if (page < 0) page = 0;
+            if (page > maxPage) page = maxPage;
+            if (page < 0) page = 0; // if count is 0, maxPage is -1
+
+            int start = page * perPage;
+            int end = Math.Min(start + perPage, displayItems.Count);
+
+            // Pagination Controls (Bottom)
+            if (maxPage > 0)
+            {
+                 // Prev
+                 if (page > 0)
+                 {
+                     elements.Add(new CuiButton {
+                        Button = { Command = $"market.cat {catIndex} {page-1}", Color = UIConstants.ButtonInactive },
+                        RectTransform = { AnchorMin = "0.4 0.02", AnchorMax = "0.48 0.07" },
+                        Text = { Text = GetMessage(Lang.UIPrev, player.UserIDString), FontSize = 14, Align = TextAnchor.MiddleCenter }
+                     }, root);
+                 }
+                 // Next
+                 if (page < maxPage)
+                 {
+                     elements.Add(new CuiButton {
+                        Button = { Command = $"market.cat {catIndex} {page+1}", Color = UIConstants.ButtonInactive },
+                        RectTransform = { AnchorMin = "0.52 0.02", AnchorMax = "0.6 0.07" },
+                        Text = { Text = GetMessage(Lang.UINext, player.UserIDString), FontSize = 14, Align = TextAnchor.MiddleCenter }
+                     }, root);
+                 }
+                 // Page Info
+                 elements.Add(new CuiLabel { Text = { Text = $"{page+1}/{maxPage+1}", FontSize = 12, Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0.48 0.02", AnchorMax = "0.52 0.07" } }, root);
+            }
+
+            // Render Items
+            for (int i = 0; i < (end - start); i++)
+            {
+                var item = displayItems[start + i];
                 int r = i / 4, c = i % 4;
                 float xMin = 0.2f + (c * 0.19f), yMax = 0.88f - (r * 0.26f);
-                var pnl = elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.6" }, RectTransform = { AnchorMin = $"{xMin} {yMax-0.24f}", AnchorMax = $"{xMin+0.18f} {yMax}" } }, root);
+                var pnl = elements.Add(new CuiPanel { Image = { Color = UIConstants.ItemPanel }, RectTransform = { AnchorMin = $"{xMin} {yMax-0.24f}", AnchorMax = $"{xMin+0.18f} {yMax}" } }, root);
                 
                 // Icon
                 string icon = (string)ImageLibrary?.Call("GetImage", item.ShortName, item.SkinId) ?? "";
@@ -373,26 +528,115 @@ namespace Oxide.Plugins
                 // Buttons
                 bool hasBuy = item.BuyPrice > 0;
                 bool hasSell = item.SellPrice > 0;
+
+                int realCatIdx = isSearching ? -1 : catIndex; 
+                // Wait, if searching, catIndex might be irrelevant for market.buy command?
+                // The market.buy command expects (int catIdx, int itemIdx). 
+                // If we are searching, we are displaying a flat list. The indexes won't match the original categories!
+                // CRITICAL ISSUE: The buy/sell commands rely on (CategoryIndex, ItemIndex). 
+                // With search, we are presenting a synthetic list.
+                // FIX: We need a way to reference the item. Or we must lookup the original indices.
+                // Lookup original indices:
+                int originalCatIdx = -1;
+                int originalItemIdx = -1;
+                
+                // Brute force find coordinates
+                for(int ci=0; ci<_config.Categories.Count; ci++) {
+                    int idx = _config.Categories[ci].Items.IndexOf(item);
+                    if (idx != -1) {
+                         originalCatIdx = ci;
+                         originalItemIdx = idx;
+                         break;
+                    }
+                }
+                
+                if (originalCatIdx == -1) continue; // Should not happen
+
+                var buyText = GetMessage(Lang.UIBuy, player.UserIDString, _config.CurrencySymbol, item.BuyPrice);
+                var sellText = GetMessage(Lang.UISell, player.UserIDString, _config.CurrencySymbol, item.SellPrice);
+                var sellAllText = GetMessage(Lang.UISellAllItem, player.UserIDString);
+                
+                // Use original indices for commands
                 if (hasBuy && hasSell)
                 {
-                    // 3-button layout: Buy | Sell x1 | Sell All
-                    elements.Add(new CuiButton { Button = { Command = $"market.buy {catIndex} {start+i}", Color = "0.3 0.5 0.2 0.8" }, RectTransform = { AnchorMin = "0.03 0.05", AnchorMax = "0.34 0.2" }, Text = { Text = $"BUY\n{_config.CurrencySymbol}{item.BuyPrice:N0}", FontSize = 8 } }, pnl);
-                    elements.Add(new CuiButton { Button = { Command = $"market.sell {catIndex} {start+i}", Color = "0.7 0.2 0.2 0.8" }, RectTransform = { AnchorMin = "0.36 0.05", AnchorMax = "0.65 0.2" }, Text = { Text = $"SELL\n{_config.CurrencySymbol}{item.SellPrice:N0}", FontSize = 8 } }, pnl);
-                    elements.Add(new CuiButton { Button = { Command = $"market.sellallitem {catIndex} {start+i}", Color = "0.7 0.3 0.1 0.9" }, RectTransform = { AnchorMin = "0.67 0.05", AnchorMax = "0.97 0.2" }, Text = { Text = "SELL\nALL", FontSize = 8 } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.buy {originalCatIdx} {originalItemIdx}", Color = UIConstants.BuyButton }, RectTransform = { AnchorMin = "0.03 0.05", AnchorMax = "0.34 0.2" }, Text = { Text = buyText, FontSize = 8, Align = TextAnchor.MiddleCenter } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.sell {originalCatIdx} {originalItemIdx}", Color = UIConstants.SellButton }, RectTransform = { AnchorMin = "0.36 0.05", AnchorMax = "0.65 0.2" }, Text = { Text = sellText, FontSize = 8, Align = TextAnchor.MiddleCenter } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.sellallitem {originalCatIdx} {originalItemIdx}", Color = UIConstants.SellAllButton }, RectTransform = { AnchorMin = "0.67 0.05", AnchorMax = "0.97 0.2" }, Text = { Text = sellAllText, FontSize = 8, Align = TextAnchor.MiddleCenter } }, pnl);
                 }
                 else if (hasBuy)
                 {
-                    elements.Add(new CuiButton { Button = { Command = $"market.buy {catIndex} {start+i}", Color = "0.3 0.5 0.2 0.8" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.2" }, Text = { Text = $"BUY {_config.CurrencySymbol}{item.BuyPrice:N0}", FontSize = 9 } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.buy {originalCatIdx} {originalItemIdx}", Color = UIConstants.BuyButton }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.95 0.2" }, Text = { Text = buyText, FontSize = 9, Align = TextAnchor.MiddleCenter } }, pnl);
                 }
                 else if (hasSell)
                 {
-                    elements.Add(new CuiButton { Button = { Command = $"market.sell {catIndex} {start+i}", Color = "0.7 0.2 0.2 0.8" }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.48 0.2" }, Text = { Text = $"SELL\n{_config.CurrencySymbol}{item.SellPrice:N0}", FontSize = 9 } }, pnl);
-                    elements.Add(new CuiButton { Button = { Command = $"market.sellallitem {catIndex} {start+i}", Color = "0.7 0.3 0.1 0.9" }, RectTransform = { AnchorMin = "0.52 0.05", AnchorMax = "0.95 0.2" }, Text = { Text = "SELL ALL", FontSize = 9 } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.sell {originalCatIdx} {originalItemIdx}", Color = UIConstants.SellButton }, RectTransform = { AnchorMin = "0.05 0.05", AnchorMax = "0.48 0.2" }, Text = { Text = sellText, FontSize = 9, Align = TextAnchor.MiddleCenter } }, pnl);
+                    elements.Add(new CuiButton { Button = { Command = $"market.sellallitem {originalCatIdx} {originalItemIdx}", Color = UIConstants.SellAllButton }, RectTransform = { AnchorMin = "0.52 0.05", AnchorMax = "0.95 0.2" }, Text = { Text = sellAllText, FontSize = 9, Align = TextAnchor.MiddleCenter } }, pnl);
                 }
             }
 
             CuiHelper.AddUi(player, elements);
         }
-        #endregion
+#endregion
+
+#region Localization
+        private class Lang
+        {
+            public const string Balance = "Balance";
+            public const string Purchased = "Purchased";
+            public const string InsufficientFunds = "InsufficientFunds";
+            public const string Sold = "Sold";
+            public const string NothingToSell = "NothingToSell";
+            public const string NotEnoughItems = "NotEnoughItems";
+            public const string SoldBulk = "SoldBulk";
+            public const string UIBalance = "UI.Balance";
+            public const string UISellAll = "UI.SellAll";
+            public const string UIBuy = "UI.Buy";
+            public const string UISell = "UI.Sell";
+            public const string UISellAllItem = "UI.SellAllItem";
+            public const string UIClose = "UI.Close";
+            public const string UISearch = "UI.Search";
+            public const string UIClear = "UI.Clear";
+            public const string UIPrev = "UI.Prev";
+            public const string UINext = "UI.Next";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.Balance] = "<color=#b7d092>[NWG]</color> Balance: <color=#b7d092>{0}{1:N2}</color>",
+                [Lang.Purchased] = "<color=#b7d092>[NWG]</color> Purchased <color=#FFA500>{0}x {1}</color>",
+                [Lang.InsufficientFunds] = "<color=#d9534f>[NWG]</color> Insufficient funds.",
+                [Lang.Sold] = "<color=#b7d092>[NWG]</color> Sold <color=#FFA500>{0}x {1}</color>",
+                [Lang.NothingToSell] = "<color=#d9534f>[NWG]</color> Nothing to sell in this category.",
+                [Lang.NotEnoughItems] = "<color=#d9534f>[NWG]</color> You don't have enough <color=#FFA500>{0}</color> to sell.",
+                [Lang.SoldBulk] = "<color=#b7d092>[NWG]</color> Sold <color=#FFA500>{0}</color> items for <color=#b7d092>{1}{2:N0}</color>",
+                [Lang.UIBalance] = "BALANCE: <color=#b7d092>{0}{1:N0}</color>",
+                [Lang.UISellAll] = "âš¡ SELL ALL",
+                [Lang.UIBuy] = "BUY\n{0}{1:N0}",
+                [Lang.UISell] = "SELL\n{0}{1:N0}",
+                [Lang.UISellAllItem] = "SELL\nALL",
+                [Lang.UIClose] = "âœ•",
+                [Lang.UISearch] = "Search...",
+                [Lang.UIClear] = "X",
+                [Lang.UIPrev] = "<",
+                [Lang.UINext] = ">"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+#region Helpers
+        private ItemDefinition GetItemDef(string shortname)
+        {
+            if (string.IsNullOrEmpty(shortname)) return null;
+            if (_itemDefCache.TryGetValue(shortname, out var def)) return def;
+            
+            def = ItemManager.FindItemDefinition(shortname);
+            if (def != null) _itemDefCache[shortname] = def;
+            return def;
+        }
+#endregion
     }
 }

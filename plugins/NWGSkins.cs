@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -14,7 +14,7 @@ namespace Oxide.Plugins
     [Description("Simple UI-based Skin Manager.")]
     public class NWGSkins : RustPlugin
     {
-        #region Config
+#region Config
         private class PluginConfig
         {
             public Dictionary<string, List<ulong>> Skins = new Dictionary<string, List<ulong>>();
@@ -22,9 +22,9 @@ namespace Oxide.Plugins
         }
 
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -36,15 +36,36 @@ namespace Oxide.Plugins
             {
                 _config = Config.ReadObject<PluginConfig>();
                 if (_config == null)
-                {
                     LoadDefaultConfig();
-                }
             }
             catch
             {
                 LoadDefaultConfig();
             }
         }
+
+#region Localization
+        public static class Lang
+        {
+            public const string HoldItem = "HoldItem";
+            public const string SkinApplied = "SkinApplied";
+            public const string Title = "Title";
+            public const string Default = "Default";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.HoldItem] = "<color=#d9534f>[NWG]</color> Hold an item to skin it.",
+                [Lang.SkinApplied] = "<color=#b7d092>[NWG]</color> Skin applied.",
+                [Lang.Title] = "SKINS: {0}",
+                [Lang.Default] = "DEFAULT"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
 
         protected override void LoadDefaultConfig()
         {
@@ -62,16 +83,16 @@ namespace Oxide.Plugins
                 CuiHelper.DestroyUi(player, "NWG_Skins_UI");
             }
         }
-        #endregion
+#endregion
 
-        #region Commands
+#region Commands
         [ChatCommand("skin")]
         private void CmdSkin(BasePlayer player)
         {
             var item = player.GetActiveItem();
             if (item == null)
             {
-                SendReply(player, "Hold an item to skin it.");
+                SendReply(player, GetMessage(Lang.HoldItem, player.UserIDString));
                 return;
             }
 
@@ -98,7 +119,7 @@ namespace Oxide.Plugins
                 heldEntity.SendNetworkUpdate();
             }
             
-            SendReply(player, "Skin applied.");
+            SendReply(player, GetMessage(Lang.SkinApplied, player.UserIDString));
             CuiHelper.DestroyUi(player, "NWG_Skins_UI");
         }
 
@@ -108,9 +129,9 @@ namespace Oxide.Plugins
             var player = arg.Player();
             if (player != null) CuiHelper.DestroyUi(player, "NWG_Skins_UI");
         }
-        #endregion
+#endregion
 
-        #region UI
+#region UI
         private void ShowSkinUI(BasePlayer player, Item item)
         {
             CuiHelper.DestroyUi(player, "NWG_Skins_UI");
@@ -130,7 +151,7 @@ namespace Oxide.Plugins
 
             // Header Title
             elements.Add(new CuiLabel {
-                Text = { Text = $"SKINS: {item.info.displayName.translated.ToUpper()}", FontSize = 20, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" },
+                Text = { Text = GetMessage(Lang.Title, player.UserIDString, item.info.displayName.translated.ToUpper()), FontSize = 20, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" },
                 RectTransform = { AnchorMin = "0.05 0.88", AnchorMax = "1 1" }
             }, root);
 
@@ -138,7 +159,7 @@ namespace Oxide.Plugins
             elements.Add(new CuiButton {
                 Button = { Command = "skin.close", Color = "0.8 0.1 0.1 0.9" },
                 RectTransform = { AnchorMin = "0.92 0.9", AnchorMax = "0.98 0.98" },
-                Text = { Text = "✕", FontSize = 18, Align = TextAnchor.MiddleCenter }
+                Text = { Text = "âœ•", FontSize = 18, Align = TextAnchor.MiddleCenter }
             }, root);
 
             List<ulong> skins = new List<ulong> { 0 }; // Default
@@ -171,7 +192,7 @@ namespace Oxide.Plugins
                     RectTransform = { AnchorMin = $"{xMin} {yMax - height}", AnchorMax = $"{xMin + width} {yMax}" }
                 }, root);
 
-                string txt = (skinId == 0) ? "DEFAULT" : $"{skinId}";
+                string txt = (skinId == 0) ? GetMessage(Lang.Default, player.UserIDString) : $"{skinId}";
 
                 elements.Add(new CuiButton {
                     Button = { Command = $"skin.apply {skinId}", Color = "0.4 0.6 0.2 0.8" },
@@ -182,7 +203,7 @@ namespace Oxide.Plugins
 
             CuiHelper.AddUi(player, elements);
         }
-        #endregion
+#endregion
     }
 }
 

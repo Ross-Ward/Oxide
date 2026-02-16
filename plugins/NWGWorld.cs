@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Facepunch;
@@ -15,7 +15,7 @@ namespace Oxide.Plugins
     [Description("Global World Settings: Crafting, Workshop, and Virtual Quarry System.")]
     public class NWGWorld : RustPlugin
     {
-        #region Configuration
+#region Configuration
         private class PluginConfig
         {
             public float CraftingSpeedMultiplier = 1.0f;
@@ -42,9 +42,9 @@ namespace Oxide.Plugins
         private class YieldInfo { public string ShortName; public int Amount; }
 
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Data
+#region Data
         private class StoredData
         {
             public Dictionary<ulong, List<VirtualQuarry>> Quarries = new Dictionary<ulong, List<VirtualQuarry>>();
@@ -61,9 +61,28 @@ namespace Oxide.Plugins
 
         private StoredData _data;
         private const string MainPanel = "NWG_QuarryUI";
-        #endregion
 
-        #region Lifecycle
+#region UI Constants
+        private static class UIConstants
+        {
+            // Theme: Sage Green & Dark
+            public const string PanelColor = "0.15 0.15 0.15 0.98";
+            public const string HeaderColor = "0.1 0.1 0.1 1";
+            public const string Primary = "0.718 0.816 0.573 1"; // Sage Green
+            public const string Secondary = "0.851 0.325 0.31 1"; // Red/Rust
+            public const string Accent = "1 0.647 0 1"; // Orange
+            public const string Text = "0.867 0.867 0.867 1"; // Soft White
+            
+            public const string OverlayColor = "0.05 0.05 0.05 0.98";
+            public const string ButtonInactive = "0.15 0.15 0.15 0.7";
+            public const string ButtonActive = "0.718 0.816 0.573 0.8"; // Sage Green Transparent
+            public const string Green = "0.4 0.8 0.2 1";
+            public const string Red = "0.8 0.2 0.2 1";
+        }
+#endregion
+#endregion
+
+#region Lifecycle
         private void Init()
         {
             _data = Interface.Oxide.DataFileSystem.ReadObject<StoredData>("NWG_World_Data") ?? new StoredData();
@@ -112,15 +131,51 @@ namespace Oxide.Plugins
             timer.Every(_config.VirtualQuarryTickRate, ProcessVirtualQuarries);
         }
 
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                ["UI.Title"] = "VIRTUAL QUARRY FARM",
+                ["UI.NoQuarries"] = "NO VIRTUAL QUARRIES DEPLOYED",
+                ["UI.DeployHeld"] = "DEPLOY HELD\n({0})",
+                ["UI.HoldToDeploy"] = "HOLD QUARRY\nTO DEPLOY",
+                ["UI.ClaimAll"] = "CLAIM ALL",
+                ["UI.ClaimFilter"] = "CLAIM {0}",
+                ["UI.FilterType"] = "FILTER BY TYPE",
+                ["UI.Info"] = "INFO:\n- Sync every {0}s\n- Add Diesel for fuel",
+                ["UI.Fuel"] = "FUEL: {0}",
+                ["UI.Running"] = "Running...",
+                ["UI.NoFuel"] = "No Fuel",
+                ["UI.Inspect"] = "INSPECT",
+                ["UI.Inspecting"] = "INSPECTING: {0}",
+                ["UI.Back"] = "BACK",
+                ["UI.Close"] = "CLOSE",
+                ["UI.DieselRemaining"] = "DIESEL REMAINING: {0}",
+                ["UI.BufferedRes"] = "BUFFERED RESOURCES",
+                ["UI.NoBuffer"] = "NO RESOURCES IN BUFFER",
+                ["UI.AddDiesel"] = "ADD 1x DIESEL",
+                ["UI.CollectAll"] = "COLLECT ALL",
+                ["UI.Processing"] = "Processed {0} Virtual Quarries.",
+                
+                ["Msg.Deployed"] = "Deployed virtual quarry!",
+                ["Msg.NoDiesel"] = "No Diesel Fuel found!",
+                ["Msg.DieselAdded"] = "Added Diesel! Remaining Units: {0}",
+                ["Msg.ItemNotFound"] = "Item not found on this server!",
+            }, this);
+        }
+        
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+
+
         private void Unload()
         {
             foreach (var player in BasePlayer.activePlayerList)
                 CuiHelper.DestroyUi(player, MainPanel);
             Interface.Oxide.DataFileSystem.WriteObject("NWG_World_Data", _data);
         }
-        #endregion
+#endregion
 
-        #region Crafting logic
+#region Crafting logic
         private void ApplyCraftingSpeed()
         {
             foreach (var bp in ItemManager.bpList)
@@ -160,15 +215,21 @@ namespace Oxide.Plugins
 
         private int GetWorkbenchLevel(Workbench wb)
         {
-            if (wb == null || wb.ShortPrefabName == null) return 0;
-            if (wb.ShortPrefabName.Contains("3")) return 3;
-            if (wb.ShortPrefabName.Contains("2")) return 2;
-            if (wb.ShortPrefabName.Contains("1")) return 1;
-            return 0;
-        }
-        #endregion
+            if (wb == null) return 0;
+            // Workbench class usually has 'WorkbenchLevel' or similar in newer Rust versions, 
+            // but since we can't inspect DLLs, we'll keep the string check as a fallback but try to be more precise.
+            // Actually, we can assume standard prefabs:
+            // "workbench1.deployed", "workbench2.deployed", "workbench3.deployed"
+            
+            if (wb.ShortPrefabName.Contains("workbench3")) return 3;
+            if (wb.ShortPrefabName.Contains("workbench2")) return 2;
+            if (wb.ShortPrefabName.Contains("workbench1")) return 1;
 
-        #region Virtual Quarry System
+            return 0; 
+        }
+#endregion
+
+#region Virtual Quarry System
         private void ProcessVirtualQuarries()
         {
             int totalProcessed = 0;
@@ -190,83 +251,83 @@ namespace Oxide.Plugins
                     totalProcessed++;
                 }
             }
-            if (totalProcessed > 0) Puts($"[NWG World] Processed {totalProcessed} Virtual Quarries.");
+            if (totalProcessed > 0) Puts(string.Format(lang.GetMessage("UI.Processing", this), totalProcessed));
         }
 
         [ChatCommand("vquarry")]
         private void CmdVQuarry(BasePlayer player) => ShowQuarryUI(player, "all");
 
-        #region Virtual Quarry UI
-        private void ShowQuarryUI(BasePlayer player, string filter = "all")
+#region Virtual Quarry UI
+        private void ShowQuarryUI(BasePlayer player) { ShowQuarryUI(player, "all"); }
+        private void ShowQuarryUI(BasePlayer player, string filter)
         {
             if (player == null) return;
             CuiHelper.DestroyUi(player, MainPanel);
 
             var e = new CuiElementContainer();
-
             var bg = e.Add(new CuiPanel
             {
-                Image = { Color = "0.08 0.08 0.1 0.98" },
+                Image = { Color = UIConstants.OverlayColor },
                 RectTransform = { AnchorMin = "0.15 0.15", AnchorMax = "0.85 0.85" },
                 CursorEnabled = true
             }, "Overlay", MainPanel);
 
             // Header bar
-            e.Add(new CuiPanel { Image = { Color = "0.12 0.12 0.15 1" }, RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 1" } }, bg);
-            e.Add(new CuiLabel { Text = { Text = "VIRTUAL QUARRY FARM", FontSize = 22, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = "0.35 0.6 1 1" }, RectTransform = { AnchorMin = "0.02 0.92", AnchorMax = "0.88 1" } }, bg);
+            e.Add(new CuiPanel { Image = { Color = UIConstants.HeaderColor }, RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 1" } }, bg);
+            e.Add(new CuiLabel { Text = { Text = GetMessage("UI.Title", player.UserIDString), FontSize = 22, Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", Color = UIConstants.Primary }, RectTransform = { AnchorMin = "0.02 0.92", AnchorMax = "0.88 1" } }, bg);
 
-            // Close button - uses Close property for guaranteed close
-            e.Add(new CuiButton { Button = { Close = MainPanel, Color = "0.8 0.2 0.2 0.9" }, RectTransform = { AnchorMin = "0.9 0.93", AnchorMax = "0.98 0.99" }, Text = { Text = "X", FontSize = 16, Align = TextAnchor.MiddleCenter } }, bg);
+            // Close button
+            e.Add(new CuiButton { Button = { Close = MainPanel, Color = UIConstants.Secondary }, RectTransform = { AnchorMin = "0.9 0.93", AnchorMax = "0.98 0.99" }, Text = { Text = "X", FontSize = 16, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text } }, bg);
 
             // Left Panel
-            var left = e.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.6" }, RectTransform = { AnchorMin = "0.02 0.02", AnchorMax = "0.3 0.9" } }, bg);
+            var left = e.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0.02 0.02", AnchorMax = "0.3 0.9" } }, bg);
             
             // Deploy Button
             var held = player.GetActiveItem();
             bool canDeploy = held != null && _config.QuarryYields.ContainsKey(held.info.shortname);
-            string deployColor = canDeploy ? "0.3 0.5 0.2 0.8" : "0.2 0.2 0.2 0.5";
-            string deployText = canDeploy ? "DEPLOY HELD\n(" + held.info.displayName.english + ")" : "HOLD QUARRY\nTO DEPLOY";
+            string deployColor = canDeploy ? UIConstants.Green : UIConstants.ButtonInactive;
+            string deployText = canDeploy ? GetMessage("UI.DeployHeld", player.UserIDString, held.info.displayName.english) : GetMessage("UI.HoldToDeploy", player.UserIDString);
             e.Add(new CuiButton
             {
                 Button = { Command = "nwg_vq_deploy", Color = deployColor },
                 RectTransform = { AnchorMin = "0.1 0.8", AnchorMax = "0.9 0.9" },
-                Text = { Text = deployText, FontSize = 10, Align = TextAnchor.MiddleCenter }
+                Text = { Text = deployText, FontSize = 10, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text }
             }, left);
 
             // Claim Button
-            string claimText = filter == "all" ? "CLAIM ALL" : "CLAIM " + filter.ToUpper();
+            string claimText = filter == "all" ? GetMessage("UI.ClaimAll", player.UserIDString) : GetMessage("UI.ClaimFilter", player.UserIDString, filter.ToUpper());
             e.Add(new CuiButton
             {
-                Button = { Command = "nwg_vq_claim " + filter, Color = "0.2 0.4 0.6 0.8" },
+                Button = { Command = "nwg_vq_claim " + filter, Color = UIConstants.ButtonActive },
                 RectTransform = { AnchorMin = "0.1 0.68", AnchorMax = "0.9 0.78" },
-                Text = { Text = claimText, FontSize = 11, Align = TextAnchor.MiddleCenter }
+                Text = { Text = claimText, FontSize = 11, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text }
             }, left);
 
             // Filters
-            e.Add(new CuiLabel { Text = { Text = "FILTER BY TYPE", FontSize = 10, Color = "0.5 0.5 0.5 1", Align = TextAnchor.UpperCenter }, RectTransform = { AnchorMin = "0 0.62", AnchorMax = "1 0.65" } }, left);
+            e.Add(new CuiLabel { Text = { Text = GetMessage("UI.FilterType", player.UserIDString), FontSize = 10, Color = "0.5 0.5 0.5 1", Align = TextAnchor.UpperCenter }, RectTransform = { AnchorMin = "0 0.62", AnchorMax = "1 0.65" } }, left);
             
             string[] filters = { "all", "quarry", "pumpjack" };
             for (int i = 0; i < filters.Length; i++)
             {
                 string f = filters[i];
                 float y = 0.55f - (i * 0.06f);
-                string btnColor = filter == f ? "0.35 0.6 1 0.4" : "0.2 0.2 0.2 0.6";
+                string btnColor = filter == f ? UIConstants.Primary : UIConstants.ButtonInactive;
                 e.Add(new CuiButton
                 {
                     Button = { Command = "nwg_vq_filter " + f, Color = btnColor },
                     RectTransform = { AnchorMin = "0.1 " + y.ToString("F2"), AnchorMax = "0.9 " + (y + 0.05f).ToString("F2") },
-                    Text = { Text = f.ToUpper(), FontSize = 9, Align = TextAnchor.MiddleCenter }
+                    Text = { Text = f.ToUpper(), FontSize = 9, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text }
                 }, left);
             }
 
-            e.Add(new CuiLabel { Text = { Text = "INFO:\n- Sync every 60s\n- Add Diesel for fuel", FontSize = 10, Color = "0.6 0.6 0.6 1", Align = TextAnchor.LowerLeft }, RectTransform = { AnchorMin = "0.1 0.05", AnchorMax = "0.9 0.2" } }, left);
+            e.Add(new CuiLabel { Text = { Text = GetMessage("UI.Info", player.UserIDString, _config.VirtualQuarryTickRate), FontSize = 10, Color = "0.6 0.6 0.6 1", Align = TextAnchor.LowerLeft }, RectTransform = { AnchorMin = "0.1 0.05", AnchorMax = "0.9 0.2" } }, left);
 
             // Right Panel - Quarry List
-            var right = e.Add(new CuiPanel { Image = { Color = "0.15 0.15 0.15 0.8" }, RectTransform = { AnchorMin = "0.32 0.02", AnchorMax = "0.98 0.9" } }, bg);
+            var right = e.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0.32 0.02", AnchorMax = "0.98 0.9" } }, bg);
             
             if (!_data.Quarries.TryGetValue(player.userID, out var list) || list.Count == 0)
             {
-                e.Add(new CuiLabel { Text = { Text = "NO VIRTUAL QUARRIES DEPLOYED", FontSize = 16, Color = "0.4 0.4 0.4 1", Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" } }, right);
+                e.Add(new CuiLabel { Text = { Text = GetMessage("UI.NoQuarries", player.UserIDString), FontSize = 16, Color = "0.4 0.4 0.4 1", Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" } }, right);
             }
             else
             {
@@ -282,13 +343,13 @@ namespace Oxide.Plugins
                     
                     e.Add(new CuiLabel { Text = { Text = q.Type.ToUpper().Replace("MINING.", ""), FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "0.7 0.7 0.7 1" }, RectTransform = { AnchorMin = "0.03 0", AnchorMax = "0.25 1" } }, row);
                     
-                    string fuelColor = q.Fuel > 0 ? "0.4 0.8 0.2 1" : "0.8 0.2 0.2 1";
-                    e.Add(new CuiLabel { Text = { Text = "FUEL: " + q.Fuel, FontSize = 10, Align = TextAnchor.MiddleLeft, Color = fuelColor }, RectTransform = { AnchorMin = "0.25 0", AnchorMax = "0.4 1" } }, row);
+                    string fuelColor = q.Fuel > 0 ? UIConstants.Green : UIConstants.Red;
+                    e.Add(new CuiLabel { Text = { Text = GetMessage("UI.Fuel", player.UserIDString, q.Fuel), FontSize = 10, Align = TextAnchor.MiddleLeft, Color = fuelColor }, RectTransform = { AnchorMin = "0.25 0", AnchorMax = "0.4 1" } }, row);
 
                     // Buffer summary
                     string buf = string.Join(", ", q.Buffer.Where(b => b.Value > 0).Select(b => b.Value + " " + PrettifyName(b.Key)));
                     if (string.IsNullOrEmpty(buf))
-                        buf = q.Fuel > 0 ? "<color=#666>Running...</color>" : "<color=#844>No Fuel</color>";
+                        buf = q.Fuel > 0 ? $"<color=#666>{GetMessage("UI.Running", player.UserIDString)}</color>" : $"<color=#844>{GetMessage("UI.NoFuel", player.UserIDString)}</color>";
                     e.Add(new CuiLabel { Text = { Text = buf, FontSize = 9, Align = TextAnchor.MiddleLeft }, RectTransform = { AnchorMin = "0.42 0", AnchorMax = "0.83 1" } }, row);
 
                     // Inspect button
@@ -296,9 +357,9 @@ namespace Oxide.Plugins
                     {
                         e.Add(new CuiButton
                         {
-                            Button = { Command = "nwg_vq_inspect " + q.Id, Color = "0.35 0.6 1 0.4" },
+                            Button = { Command = "nwg_vq_inspect " + q.Id, Color = UIConstants.ButtonInactive },
                             RectTransform = { AnchorMin = "0.85 0.1", AnchorMax = "0.98 0.9" },
-                            Text = { Text = "INSPECT", FontSize = 9, Align = TextAnchor.MiddleCenter }
+                            Text = { Text = GetMessage("UI.Inspect", player.UserIDString), FontSize = 9, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text }
                         }, row);
                     }
                 }
@@ -320,44 +381,44 @@ namespace Oxide.Plugins
 
             var bg = e.Add(new CuiPanel
             {
-                Image = { Color = "0.08 0.08 0.1 0.98" },
+                Image = { Color = UIConstants.OverlayColor },
                 RectTransform = { AnchorMin = "0.25 0.2", AnchorMax = "0.75 0.8" },
                 CursorEnabled = true
             }, "Overlay", MainPanel);
 
             // Header bar
-            e.Add(new CuiPanel { Image = { Color = "0.12 0.12 0.15 1" }, RectTransform = { AnchorMin = "0 0.9", AnchorMax = "1 1" } }, bg);
-            e.Add(new CuiLabel { Text = { Text = "INSPECTING: " + q.Type.ToUpper().Replace("MINING.", ""), FontSize = 18, Align = TextAnchor.MiddleLeft, Color = "0.35 0.6 1 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.9", AnchorMax = "0.6 1" } }, bg);
+            e.Add(new CuiPanel { Image = { Color = UIConstants.HeaderColor }, RectTransform = { AnchorMin = "0 0.9", AnchorMax = "1 1" } }, bg);
+            e.Add(new CuiLabel { Text = { Text = GetMessage("UI.Inspecting", player.UserIDString, q.Type.ToUpper().Replace("MINING.", "")), FontSize = 18, Align = TextAnchor.MiddleLeft, Color = UIConstants.Primary, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.05 0.9", AnchorMax = "0.6 1" } }, bg);
 
             // Back button
             e.Add(new CuiButton
             {
-                Button = { Command = "nwg_vq_filter all", Color = "0.25 0.25 0.25 0.8" },
+                Button = { Command = "nwg_vq_filter all", Color = UIConstants.ButtonInactive },
                 RectTransform = { AnchorMin = "0.64 0.92", AnchorMax = "0.78 0.98" },
-                Text = { Text = "BACK", FontSize = 11, Align = TextAnchor.MiddleCenter }
+                Text = { Text = GetMessage("UI.Back", player.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text }
             }, bg);
 
             // Close button - uses Close property
             e.Add(new CuiButton
             {
-                Button = { Close = MainPanel, Color = "0.8 0.2 0.2 0.9" },
+                Button = { Close = MainPanel, Color = UIConstants.Secondary },
                 RectTransform = { AnchorMin = "0.82 0.92", AnchorMax = "0.97 0.98" },
-                Text = { Text = "CLOSE", FontSize = 11, Align = TextAnchor.MiddleCenter }
+                Text = { Text = GetMessage("UI.Close", player.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text }
             }, bg);
 
             // Content
-            var content = e.Add(new CuiPanel { Image = { Color = "0.15 0.15 0.15 0.6" }, RectTransform = { AnchorMin = "0.02 0.18", AnchorMax = "0.98 0.88" } }, bg);
+            var content = e.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0.02 0.18", AnchorMax = "0.98 0.88" } }, bg);
 
             // Fuel status
-            string fuelColor = q.Fuel > 0 ? "0.4 0.8 0.2 1" : "0.8 0.3 0.2 1";
-            e.Add(new CuiLabel { Text = { Text = "DIESEL REMAINING: " + q.Fuel, FontSize = 14, Align = TextAnchor.MiddleLeft, Color = fuelColor }, RectTransform = { AnchorMin = "0.03 0.88", AnchorMax = "0.5 0.98" } }, content);
-            e.Add(new CuiLabel { Text = { Text = "BUFFERED RESOURCES", FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "0.5 0.5 0.5 1" }, RectTransform = { AnchorMin = "0.03 0.78", AnchorMax = "0.5 0.86" } }, content);
+            string fuelColor = q.Fuel > 0 ? UIConstants.Green : UIConstants.Red;
+            e.Add(new CuiLabel { Text = { Text = GetMessage("UI.DieselRemaining", player.UserIDString, q.Fuel), FontSize = 14, Align = TextAnchor.MiddleLeft, Color = fuelColor }, RectTransform = { AnchorMin = "0.03 0.88", AnchorMax = "0.5 0.98" } }, content);
+            e.Add(new CuiLabel { Text = { Text = GetMessage("UI.BufferedRes", player.UserIDString), FontSize = 11, Align = TextAnchor.MiddleLeft, Color = "0.5 0.5 0.5 1" }, RectTransform = { AnchorMin = "0.03 0.78", AnchorMax = "0.5 0.86" } }, content);
 
             // Buffer items
             var bufferEntries = q.Buffer.Where(b => b.Value > 0).ToList();
             if (bufferEntries.Count == 0)
             {
-                e.Add(new CuiLabel { Text = { Text = "NO RESOURCES IN BUFFER", FontSize = 16, Align = TextAnchor.MiddleCenter, Color = "0.3 0.3 0.3 1" }, RectTransform = { AnchorMin = "0 0.1", AnchorMax = "1 0.7" } }, content);
+                e.Add(new CuiLabel { Text = { Text = GetMessage("UI.NoBuffer", player.UserIDString), FontSize = 16, Align = TextAnchor.MiddleCenter, Color = "0.3 0.3 0.3 1" }, RectTransform = { AnchorMin = "0 0.1", AnchorMax = "1 0.7" } }, content);
             }
             else
             {
@@ -369,23 +430,23 @@ namespace Oxide.Plugins
                     string rMax = "0.97 " + yTop.ToString("F2");
                     var itemRow = e.Add(new CuiPanel { Image = { Color = "0.2 0.2 0.2 0.5" }, RectTransform = { AnchorMin = rMin, AnchorMax = rMax } }, content);
                     e.Add(new CuiLabel { Text = { Text = PrettifyName(b.Key), FontSize = 12, Align = TextAnchor.MiddleLeft, Color = "0.8 0.8 0.8 1" }, RectTransform = { AnchorMin = "0.05 0", AnchorMax = "0.6 1" } }, itemRow);
-                    e.Add(new CuiLabel { Text = { Text = "x" + b.Value.ToString("N0"), FontSize = 14, Align = TextAnchor.MiddleRight, Color = "0.4 0.8 0.2 1", Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.6 0", AnchorMax = "0.95 1" } }, itemRow);
+                    e.Add(new CuiLabel { Text = { Text = "x" + b.Value.ToString("N0"), FontSize = 14, Align = TextAnchor.MiddleRight, Color = UIConstants.Green, Font = "robotocondensed-bold.ttf" }, RectTransform = { AnchorMin = "0.6 0", AnchorMax = "0.95 1" } }, itemRow);
                 }
             }
 
             // Footer buttons
             e.Add(new CuiButton
             {
-                Button = { Command = "nwg_vq_addfuel " + q.Id, Color = "0.3 0.5 0.2 0.8" },
+                Button = { Command = "nwg_vq_addfuel " + q.Id, Color = UIConstants.Green },
                 RectTransform = { AnchorMin = "0.05 0.03", AnchorMax = "0.48 0.14" },
-                Text = { Text = "ADD 1x DIESEL", FontSize = 11, Align = TextAnchor.MiddleCenter }
+                Text = { Text = GetMessage("UI.AddDiesel", player.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text }
             }, bg);
 
             e.Add(new CuiButton
             {
-                Button = { Command = "nwg_vq_claimone " + q.Id, Color = "0.2 0.4 0.6 0.8" },
+                Button = { Command = "nwg_vq_claimone " + q.Id, Color = UIConstants.ButtonActive },
                 RectTransform = { AnchorMin = "0.52 0.03", AnchorMax = "0.95 0.14" },
-                Text = { Text = "COLLECT ALL", FontSize = 11, Align = TextAnchor.MiddleCenter }
+                Text = { Text = GetMessage("UI.CollectAll", player.UserIDString), FontSize = 11, Align = TextAnchor.MiddleCenter, Color = UIConstants.Text }
             }, bg);
 
             CuiHelper.AddUi(player, e);
@@ -415,20 +476,20 @@ namespace Oxide.Plugins
             var dieselDef = ItemManager.FindItemDefinition("diesel_barrel");
             if (dieselDef == null)
             {
-                p.ChatMessage("Diesel item not found on this server!");
+                p.ChatMessage(GetMessage("Msg.ItemNotFound", p.UserIDString));
                 return;
             }
 
             var diesel = p.inventory.FindItemByItemID(dieselDef.itemid);
             if (diesel == null)
             {
-                p.ChatMessage("No Diesel Fuel found!");
+                p.ChatMessage(GetMessage("Msg.NoDiesel", p.UserIDString));
                 return;
             }
 
             diesel.UseItem(1);
             q.Fuel += _config.FuelPerDiesel;
-            p.ChatMessage("Added Diesel! Units: " + q.Fuel);
+            p.ChatMessage(GetMessage("Msg.DieselAdded", p.UserIDString, q.Fuel));
             ShowQuarryDetails(p, id);
         }
 
@@ -494,7 +555,7 @@ namespace Oxide.Plugins
                     Fuel = 0
                 });
                 held.UseItem();
-                p.ChatMessage("Deployed virtual quarry!");
+                p.ChatMessage(GetMessage("Msg.Deployed", p.UserIDString));
                 ShowQuarryUI(p);
             }
         }
@@ -521,7 +582,7 @@ namespace Oxide.Plugins
             }
             ShowQuarryUI(p, filter);
         }
-        #endregion
-        #endregion
+#endregion
+#endregion
     }
 }

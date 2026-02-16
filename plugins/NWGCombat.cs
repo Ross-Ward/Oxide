@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Oxide.Core;
 using Oxide.Core.Plugins;
@@ -13,11 +13,11 @@ namespace Oxide.Plugins
     [Description("Unified Damage Control and PVP System.")]
     public class NWGCombat : RustPlugin
     {
-        #region References
+#region References
         [PluginReference] private Plugin NWGZones;
-        #endregion
+#endregion
 
-        #region Config
+#region Config
         private class PluginConfig
         {
             public bool GlobalPVE = true;
@@ -27,9 +27,9 @@ namespace Oxide.Plugins
         }
 
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -58,6 +58,25 @@ namespace Oxide.Plugins
             SaveConfig();
         }
 
+#region Localization
+        public static class Lang
+        {
+            public const string PveBlocked = "PveBlocked";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.PveBlocked] = "<color=#d9534f>[NWG]</color> This is a PVE area. PvP and Raiding are disabled."
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+        private Dictionary<ulong, float> _lastWarning = new Dictionary<ulong, float>();
+
         private void Unload()
         {
             foreach (var player in BasePlayer.activePlayerList)
@@ -65,9 +84,9 @@ namespace Oxide.Plugins
                 CuiHelper.DestroyUi(player, "NWG_Combat_PVP");
             }
         }
-        #endregion
+#endregion
 
-        #region Damage Logic
+#region Damage Logic
         private object OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
         {
             if (entity == null || info == null) return null;
@@ -110,11 +129,21 @@ namespace Oxide.Plugins
                     if (entity.OwnerID == attacker.userID) return null;
                     if (IsAuthed(entity, attacker)) return null;
 
+                    SendWarning(attacker);
                     return false;
                 }
             }
 
             return null;
+        }
+
+        private void SendWarning(BasePlayer player)
+        {
+            if (player == null) return;
+            if (_lastWarning.TryGetValue(player.userID, out float last) && Time.realtimeSinceStartup < last + 2f) return;
+            
+            _lastWarning[player.userID] = Time.realtimeSinceStartup;
+            player.ChatMessage(GetMessage(Lang.PveBlocked, player.UserIDString));
         }
 
         private bool IsAuthed(BaseEntity entity, BasePlayer player)
@@ -126,20 +155,15 @@ namespace Oxide.Plugins
 
         private bool IsInPvpZone(ulong playerId)
         {
-            if (NWGZones == null) return false;
-            // Assuming NWG_Zones checks flags. 
-            // Since NWG_Zones handles "HasFlag", we'd need to know the zone logic.
-            // Or simpler: Check if NWG_Zones returns "PVP" for this player.
-            // Let's assume NWG_Zones exposes a hook or method.
-            // Hook: IsPlayerInZone(string flag, ulong id)
+            if (NWGZones == null || !NWGZones.IsLoaded) return false;
             
-            var result = NWGZones.Call("HasPlayerFlag", playerId, "PVP");
-            if (result is bool b) return b;
-            return false;
+            // Call into NWGZones to check for "PVP" flag
+            object result = NWGZones.Call("HasPlayerFlag", playerId, "PVP");
+            return result is bool b && b;
         }
-        #endregion
+#endregion
 
-        #region UI
+#region UI
         [HookMethod("OnEnterPvpZone")]
         public void OnEnterPvpZone(BasePlayer player)
         {
@@ -170,7 +194,7 @@ namespace Oxide.Plugins
             });
             CuiHelper.AddUi(player, elements);
         }
-        #endregion
+#endregion
     }
 }
 

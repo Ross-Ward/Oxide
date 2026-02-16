@@ -379,7 +379,7 @@ namespace Oxide.Plugins
                 }
             }
 
-            Puts($"Skin detection initialized: {_paidSkinIds.Count} official skins, {_dlcItemIds.Count} DLC items. Processing {_pendingPastes.Count} queued paste(s).");
+            Puts(Lang("SKIN_DETECTION_INIT", null, _paidSkinIds.Count, _dlcItemIds.Count, _pendingPastes.Count));
 
             _pasteReady = true;
             for (int i = 0; i < _pendingPastes.Count; i++)
@@ -4938,9 +4938,16 @@ namespace Oxide.Plugins
                 {
                     "FILE_NOT_EXISTS", new Dictionary<string, string>
                     {
-                        { "en", "File does not exist" },
+                        { "en", "File does not exist" }, // No prefix for error returns that might not be chat
                         { "ru", "Файл не существует" },
                         { "nl", "Bestand bestaat niet." }
+                    }
+                },
+                {
+                    "SKIN_DETECTION_INIT", new Dictionary<string, string>
+                    {
+                        { "en", "Skin detection initialized: {0} official skins, {1} DLC items. Processing {2} queued paste(s)." },
+                        { "ru", "Скины загружены: {0} оф., {1} DLC. В очереди: {2}." } // Basic localized
                     }
                 },
                 {
@@ -4954,7 +4961,7 @@ namespace Oxide.Plugins
                 {
                     "NO_ACCESS", new Dictionary<string, string>
                     {
-                        { "en", "You don't have the permissions to use this command" },
+                        { "en", "<color=#55aaff>[CopyPaste]</color> You don't have the permissions to use this command" },
                         { "ru", "У вас нет прав доступа к данной команде" },
                         { "nl", "U heeft geen toestemming/permissie om dit commando te gebruiken." }
                     }
@@ -4989,11 +4996,10 @@ namespace Oxide.Plugins
                         }
                     }
                 },
+                { "SYNTAX_PASTE_OR_PASTEBACK", new Dictionary<string, string>
                 {
-                    "SYNTAX_PASTE_OR_PASTEBACK", new Dictionary<string, string>
                     {
-                        {
-                            "en", "Syntax: /paste or /pasteback <Target Filename> <options values>\n" +
+                        "en", "<color=#55aaff>[CopyPaste]</color> Syntax: /paste or /pasteback <Target Filename> <options values>\n" +
                                   "height XX - Adjust the height\n" +
                                   "autoheight true/false - sets best height, carefull of the steep\n" +
                                   "blockcollision XX - blocks the entire paste if something the new building collides with something\n" +
@@ -5029,7 +5035,7 @@ namespace Oxide.Plugins
                 {
                     "PASTEBACK_SUCCESS", new Dictionary<string, string>
                     {
-                        { "en", "You've successfully placed back the structure" },
+                        { "en", "<color=#55aaff>[CopyPaste]</color> You've successfully placed back the structure" },
                         { "ru", "Постройка успешно вставлена на старое место" },
                         { "nl", "Het gebouw is succesvol teruggeplaatst." }
                     }
@@ -5037,7 +5043,7 @@ namespace Oxide.Plugins
                 {
                     "PASTE_SUCCESS", new Dictionary<string, string>
                     {
-                        { "en", "You've successfully pasted the structure" },
+                        { "en", "<color=#55aaff>[CopyPaste]</color> You've successfully pasted the structure" },
                         { "ru", "Постройка успешно вставлена" },
                         { "nl", "Het gebouw is succesvol geplaatst." }
                     }
@@ -5046,7 +5052,7 @@ namespace Oxide.Plugins
                     "SYNTAX_COPY", new Dictionary<string, string>
                     {
                         {
-                            "en", "Syntax: /copy <Target Filename> <options values>\n" +
+                            "en", "<color=#55aaff>[CopyPaste]</color> Syntax: /copy <Target Filename> <options values>\n" +
                                   "radius XX (default 3) - The radius in which to search for the next object (performs this search from every other object)\n" +
                                   "method proximity/building (default proximity) - Building only copies objects which are part of the building, proximity copies everything (within the radius)\n" +
                                   "deployables true/false (saves deployables or not) - Whether to save deployables\n" +
@@ -5079,7 +5085,7 @@ namespace Oxide.Plugins
                 {
                     "COPY_SUCCESS", new Dictionary<string, string>
                     {
-                        { "en", "The structure was successfully copied as {0}" },
+                        { "en", "<color=#55aaff>[CopyPaste]</color> The structure was successfully copied as {0}" },
                         { "ru", "Постройка успешно скопирована под названием: {0}" },
                         { "nl", "Gebouw is succesvol gekopieërd" }
                     }
@@ -5098,7 +5104,7 @@ namespace Oxide.Plugins
                 {
                     "UNDO_SUCCESS", new Dictionary<string, string>
                     {
-                        { "en", "You've successfully undid what you pasted" },
+                        { "en", "<color=#55aaff>[CopyPaste]</color> You've successfully undid what you pasted" },
                         { "ru", "Вы успешно снесли вставленную постройку" },
                         { "nl", "Laatse geplaatste gebouw is succesvol ongedaan gemaakt." }
                     }

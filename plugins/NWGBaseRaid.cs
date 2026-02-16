@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -12,18 +12,11 @@ namespace Oxide.Plugins
     [Description("Key-based base raiding system.")]
     public class NWGBaseRaid : RustPlugin
     {
+        [PluginReference] private Plugin NWGCore;
+
         private Dictionary<Vector3, RaidWindow> _activeRaids = new Dictionary<Vector3, RaidWindow>();
 
-        private string GetGrid(Vector3 pos)
-        {
-            float size = TerrainMeta.Size.x;
-            float offset = size / 2;
-            int x = Mathf.FloorToInt((pos.x + offset) / 146.3f);
-            int z = Mathf.FloorToInt((size - (pos.z + offset)) / 146.3f);
-            string letters = "";
-            while (x >= 0) { letters = (char)('A' + (x % 26)) + letters; x = (x / 26) - 1; }
-            return $"{letters}{z}";
-        }
+
 
         private class RaidWindow
         {
@@ -32,7 +25,26 @@ namespace Oxide.Plugins
             public Vector3 BasePos;
         }
 
-        #region Player Death Drop
+        private const ulong RaidKeySkinID = 123456789; // TODO: Replace with actual custom skin ID or specific workshop skin
+        
+#region Localization
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                ["LuckyKill"] = "<color=#b7d092>[NWG] LUCKY KILL!</color> The victim dropped a Base Raid Key and Map!",
+                ["KeyRequired"] = "<color=#d9534f>[NWG]</color> You must be holding a <color=#FFA500>'Base Raid Key'</color> to start a raid.",
+                ["LookAtBase"] = "<color=#d9534f>[NWG]</color> Look at a building to start the raid.",
+                ["RaidActive"] = "<color=#d9534f>[NWG]</color> This base area is already being raided!",
+                ["RaidStarted"] = "<color=#b7d092>[NWG] RAID STARTED!</color> You have 30 minutes to breach the base at <color=#FFA500>{0}</color>.",
+                ["LogRaidStart"] = "[NWG] Raid started on base at {0} (Grid: {1}) by {2}"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+#region Player Death Drop
         private void OnPlayerDeath(BasePlayer victim, HitInfo info)
         {
             var attacker = info?.Initiator as BasePlayer;
@@ -47,7 +59,7 @@ namespace Oxide.Plugins
                 if (tc != null) basePos = tc.transform.position;
 
                 DropRaidItems(victim.transform.position, victim.displayName, basePos);
-                attacker.ChatMessage("<color=#FF6B6B>LUCKY KILL!</color> The victim dropped a Base Raid Key and Map!");
+                attacker.ChatMessage(GetMessage("LuckyKill", attacker.UserIDString));
             }
         }
 
@@ -56,11 +68,12 @@ namespace Oxide.Plugins
             // Drop a map (Note)
             var map = ItemManager.CreateByName("note", 1);
             map.name = $"Raid Map: {victimName}'s Base";
-            map.text = $"Base Location: {GetGrid(basePos)} ({Math.Round(basePos.x)}, {Math.Round(basePos.z)})";
+            string grid = NWGCore?.Call<string>("GetGrid", basePos) ?? "???";
+            map.text = $"Base Location: {grid} ({Math.Round(basePos.x)}, {Math.Round(basePos.z)})";
             map.Drop(pos + new Vector3(0, 1, 0), Vector3.up);
 
             // Drop a key (Customized item)
-            var key = ItemManager.CreateByName("keycard_red", 1);
+            var key = ItemManager.CreateByName("keycard_red", 1, RaidKeySkinID);
             key.name = "Base Raid Key";
             key.Drop(pos + new Vector3(0, 1.1f, 0), Vector3.up);
         }
@@ -71,17 +84,17 @@ namespace Oxide.Plugins
             return UnityEngine.Object.FindObjectsOfType<BuildingPrivlidge>()
                 .FirstOrDefault(tc => tc.authorizedPlayers.Any(p => p == player.userID));
         }
-        #endregion
+#endregion
 
-        #region Raid Activation
+#region Raid Activation
         [ChatCommand("startraid")]
         private void CmdRaidStart(BasePlayer player)
         {
             var key = player.GetActiveItem();
-            //TODO: Make sure key object check is not wokring for objects with keycard_blue, keycard_green, etc
-            if (key == null || key.info.shortname != "keycard_red" || key.name != "Base Raid Key")
+            // Use SkinID for robust checking
+            if (key == null || key.info.shortname != "keycard_red" || key.skin != RaidKeySkinID)
             {
-                player.ChatMessage("You must be holding a 'Base Raid Key' to start a raid.");
+                player.ChatMessage(GetMessage("KeyRequired", player.UserIDString));
                 return;
             }
 
@@ -91,12 +104,12 @@ namespace Oxide.Plugins
             {
                 var ent = hit.GetEntity();
                 var tc = ent.GetBuildingPrivilege();
-                if (tc == null) { player.ChatMessage("Look at a building to start the raid."); return; }
+                if (tc == null) { player.ChatMessage(GetMessage("LookAtBase", player.UserIDString)); return; }
 
                 Vector3 basePos = tc.transform.position;
                 if (_activeRaids.Keys.Any(p => Vector3.Distance(p, basePos) < 50f)) 
                 { 
-                    player.ChatMessage("This base area is already being raided!"); 
+                    player.ChatMessage(GetMessage("RaidActive", player.UserIDString)); 
                     return; 
                 }
 
@@ -107,13 +120,14 @@ namespace Oxide.Plugins
                 };
 
                 key.UseItem(1);
-                player.ChatMessage($"<color=#FF6B6B>RAID STARTED!</color> You have 30 minutes to breach the base at <color=yellow>{GetGrid(basePos)}</color>.");
-                Puts($"[NWG Raid Logic] Raid started on base at {basePos} (Grid: {GetGrid(basePos)}) by {player.displayName}");
+                string gridRef = NWGCore?.Call<string>("GetGrid", basePos) ?? "???";
+                player.ChatMessage(GetMessage("RaidStarted", player.UserIDString, gridRef));
+                Puts(GetMessage("LogRaidStart", null, basePos, gridRef, player.displayName));
             }
         }
-        #endregion
+#endregion
 
-        #region Damage Control
+#region Damage Control
         private object OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
         {
             if (entity == null || info == null) return null;
@@ -141,7 +155,7 @@ namespace Oxide.Plugins
 
             return null;
         }
-        #endregion
+#endregion
     }
 }
 

@@ -1,4 +1,4 @@
-using Oxide.Plugins;
+﻿using Oxide.Plugins;
 
 namespace Oxide.Plugins
 {

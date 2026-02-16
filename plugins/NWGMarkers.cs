@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 using Oxide.Core;
@@ -11,7 +11,7 @@ namespace Oxide.Plugins
     [Description("Create and manage custom map markers with full control over appearance and behavior.")]
     public class NWGMarkers : RustPlugin
     {
-        #region Configuration
+#region Configuration
         private class PluginConfig
         {
             [JsonProperty("Default Marker Settings")]
@@ -32,9 +32,9 @@ namespace Oxide.Plugins
             }
         }
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region State
+#region State
         private const string GENERIC_PREFAB = "assets/prefabs/tools/map/genericradiusmarker.prefab";
         private const string VENDING_PREFAB = "assets/prefabs/deployable/vendingmachine/vending_mapmarker.prefab";
         private const string PERM_USE = "nwgmarkers.use";
@@ -42,9 +42,9 @@ namespace Oxide.Plugins
         
         private readonly List<CustomMapMarker> _markers = new List<CustomMapMarker>();
         private StringBuilder _sb;
-        #endregion
+#endregion
 
-        #region Data
+#region Data
         private StoredData _data;
         private class StoredData
         {
@@ -71,9 +71,9 @@ namespace Oxide.Plugins
             catch { _data = new StoredData(); }
             if (_data == null) _data = new StoredData();
         }
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         void Init()
         {
             permission.RegisterPermission(PERM_USE, this);
@@ -108,9 +108,9 @@ namespace Oxide.Plugins
         }
         protected override void LoadDefaultConfig() { Puts("Creating new config for NWG Markers"); _config = new PluginConfig(); SaveConfig(); }
         protected override void SaveConfig() => Config.WriteObject(_config);
-        #endregion
+#endregion
 
-        #region Commands
+#region Commands
         [ChatCommand("marker")]
         void CmdMarker(BasePlayer player, string cmd, string[] args)
         {
@@ -183,9 +183,9 @@ namespace Oxide.Plugins
                     break;
             }
         }
-        #endregion
+#endregion
 
-        #region Marker Management
+#region Marker Management
         T GetOrAddComponent<T>(GameObject obj) where T : Component
         {
             var comp = obj.GetComponent<T>();
@@ -267,9 +267,9 @@ namespace Oxide.Plugins
             foreach (var saved in _data.Markers)
                 CreateCustomMarker(saved);
         }
-        #endregion
+#endregion
 
-        #region API
+#region API
         void API_CreateMarker(Vector3 position, string name, int duration = 0, float refreshRate = 30f, 
             float radius = 0.4f, string displayName = "Marker", string colorMarker = "00FFFF", 
             string colorOutline = "00FFFFFF", float alpha = 0.75f)
@@ -285,27 +285,27 @@ namespace Oxide.Plugins
         }
 
         void API_RemoveMarker(string name) => RemoveMarker(name);
-        #endregion
+#endregion
 
-        #region Localization
+#region Localization
         protected override void LoadDefaultMessages()
         {
             lang.RegisterMessages(new Dictionary<string, string>
             {
-                ["NoPermission"] = "<color=#ff4444>[NWG Markers]</color> You don't have permission to use this command.",
-                ["Usage"] = "<color=#00ffff>[NWG Markers]</color> Usage:\n" +
-                           "  <color=#ffcc00>/marker add</color> <name> <duration> <refreshRate> <radius> <displayName> <color> <outlineColor> <alpha>\n" +
-                           "  <color=#ffcc00>/marker remove</color> <name>\n" +
-                           "  <color=#ffcc00>/marker list</color>",
-                ["UsageAdd"] = "<color=#00ffff>[NWG Markers]</color> Usage:\n" +
-                              "  <color=#ffcc00>/marker add</color> <name> <duration> <refreshRate> <radius> <displayName> <color> <outlineColor> <alpha>\n" +
+                ["NoPermission"] = "<color=#d9534f>[NWG]</color> You don't have permission to use this command.",
+                ["Usage"] = "<color=#b7d092>[NWG]</color> Usage:\n" +
+                           "  <color=#FFA500>/marker add</color> <name> <duration> <refreshRate> <radius> <displayName> <color> <outlineColor> <alpha>\n" +
+                           "  <color=#FFA500>/marker remove</color> <name>\n" +
+                           "  <color=#FFA500>/marker list</color>",
+                ["UsageAdd"] = "<color=#b7d092>[NWG]</color> Usage:\n" +
+                              "  <color=#FFA500>/marker add</color> <name> <duration> <refreshRate> <radius> <displayName> <color> <outlineColor> <alpha>\n" +
                               "  Example: /marker add mymarker 0 30 0.4 \"My Location\" 00FFFF 00FFFFFF 0.75",
-                ["UsageRemove"] = "<color=#00ffff>[NWG Markers]</color> Usage: <color=#ffcc00>/marker remove</color> <name>",
-                ["MarkerAdded"] = "<color=#00ff00>[NWG Markers]</color> Marker '<color=#ffcc00>{0}</color>' added at {1}",
-                ["MarkersRemoved"] = "<color=#00ff00>[NWG Markers]</color> Removed {0} marker(s).",
-                ["NoMarkers"] = "<color=#ffcc00>[NWG Markers]</color> No custom markers found.",
-                ["MarkerList"] = "<color=#00ffff>[NWG Markers]</color> Custom Markers:",
-                ["MarkerListEntry"] = "  • <color=#ffcc00>{0}</color> - {1} at {2}"
+                ["UsageRemove"] = "<color=#b7d092>[NWG]</color> Usage: <color=#FFA500>/marker remove</color> <name>",
+                ["MarkerAdded"] = "<color=#b7d092>[NWG]</color> Marker '<color=#FFA500>{0}</color>' added at {1}",
+                ["MarkersRemoved"] = "<color=#b7d092>[NWG]</color> Removed {0} marker(s).",
+                ["NoMarkers"] = "<color=#d9534f>[NWG]</color> No custom markers found.",
+                ["MarkerList"] = "<color=#b7d092>[NWG]</color> Custom Markers:",
+                ["MarkerListEntry"] = "  â€¢ <color=#FFA500>{0}</color> - {1} at {2}"
             }, this);
         }
 
@@ -325,9 +325,9 @@ namespace Oxide.Plugins
             string msg = Lang(key, player.UserIDString, args);
             player.ChatMessage(msg);
         }
-        #endregion
+#endregion
 
-        #region Custom Marker Component
+#region Custom Marker Component
         private class CustomMapMarker : MonoBehaviour
         {
             private VendingMachineMapMarker _vending;
@@ -417,7 +417,7 @@ namespace Oxide.Plugins
                 DestroyMarkers();
             }
         }
-        #endregion
+#endregion
     }
 }
 

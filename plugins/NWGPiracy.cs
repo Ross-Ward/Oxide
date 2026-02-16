@@ -1,4 +1,4 @@
-// Forced Recompile: 2026-02-12 01:38
+﻿// Forced Recompile: 2026-02-12 01:38
 using System;
 using System.Collections.Generic;
 using Oxide.Core;
@@ -17,7 +17,7 @@ namespace Oxide.Plugins
         private List<MapMarkerGenericRadius> _activeMarkers = new List<MapMarkerGenericRadius>();
         private Timer _piracyTimer;
 
-        #region Lifecycle
+#region Lifecycle
         private void OnServerInitialized()
         {
             _piracyTimer = timer.Every(3600, SpawnPiracyEvent); // Every hour
@@ -29,10 +29,28 @@ namespace Oxide.Plugins
             CleanupMarkers();
         }
 
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                ["TugboatSpawned"] = "<color=#b7d092>[NWG] PIRATE TUGBOAT SPOTTED!</color>\nA hostile tugboat with high-value cargo has been spotted at sea!\n<color=#aaaaaa>Check your map for a blue marker.</color>",
+                ["SalvageSpawned"] = "<color=#FFA500>[NWG] DEEP SEA SALVAGE DETECTED!</color>\nA sunken crate with valuable cargo has been located!\n<color=#aaaaaa>Check your map for a cyan marker. Bring diving gear!</color>",
+                ["TugboatAdmin"] = "<color=#b7d092>[NWG]</color> Pirate Tugboat spawned!",
+                ["SalvageAdmin"] = "<color=#b7d092>[NWG]</color> Deep Sea Salvage spawned!",
+                ["LogTugboat"] = "[NWG] A Pirate Tugboat with high-value cargo has been spotted at {0}!",
+                ["LogSalvage"] = "[NWG] Deep sea salvage detected at {0}!"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+#region Map Markers
         private void CleanupPirates()
         {
             // Kill in reverse order so children are destroyed before their parents,
             // avoiding cascading OnParentRemoved crashes on BasePlayer/HumanNPC entities.
+            // Also explicitly check for children.
             var list = _activePirateEntities.ToList();
             list.Reverse();
             foreach (var ent in list)
@@ -40,6 +58,16 @@ namespace Oxide.Plugins
                 try
                 {
                     if (ent == null || ent.IsDestroyed) continue;
+                    
+                    // Specific check for Tugboat to kill potential leftover mounts/children first if any
+                    if (ent is Tugboat tug)
+                    {
+                        foreach(var child in tug.children.ToList())
+                        {
+                            if (child != null && !child.IsDestroyed) child.Kill();
+                        }
+                    }
+
                     ent.Kill();
                 }
                 catch (Exception ex)
@@ -58,9 +86,6 @@ namespace Oxide.Plugins
             }
             _activeMarkers.Clear();
         }
-        #endregion
-
-        #region Map Markers
         private void SpawnMapMarker(Vector3 pos, Color primary, Color secondary, float radius, string label)
         {
             var marker = GameManager.server.CreateEntity("assets/prefabs/tools/map/genericradiusmarker.prefab", pos) as MapMarkerGenericRadius;
@@ -75,9 +100,9 @@ namespace Oxide.Plugins
             _activeMarkers.Add(marker);
             _activePirateEntities.Add(marker); // Also track for global cleanup
         }
-        #endregion
+#endregion
 
-        #region Events
+#region Events
         private void SpawnPiracyEvent()
         {
             int rand = UnityEngine.Random.Range(0, 2);
@@ -92,12 +117,12 @@ namespace Oxide.Plugins
             if (args.Length > 0 && args[0].ToLower() == "salvage")
             {
                 SpawnDeepSeaSalvage();
-                player.ChatMessage("Deep Sea Salvage spawned!");
+                player.ChatMessage(GetMessage("SalvageAdmin", player.UserIDString));
             }
             else
             {
                 SpawnTugboatRaider();
-                player.ChatMessage("Pirate Tugboat spawned!");
+                player.ChatMessage(GetMessage("TugboatAdmin", player.UserIDString));
             }
         }
 
@@ -136,8 +161,8 @@ namespace Oxide.Plugins
             // Spawn a BLUE map marker for the tugboat raider
             SpawnMapMarker(pos, new Color(0.2f, 0.4f, 1f, 1f), new Color(0f, 0.1f, 0.4f, 0.5f), 0.12f, "Pirate Tugboat");
 
-            PrintToChat("<color=#4488FF>\u2693 PIRATE TUGBOAT SPOTTED!</color>\nA hostile tugboat with high-value cargo has been spotted at sea!\n<color=#AAAAAA>Check your map for a blue marker.</color>");
-            Puts($"[NWG Piracy] A Pirate Tugboat with high-value cargo has been spotted at {pos}!");
+            PrintToChat(GetMessage("TugboatSpawned", null));
+            Puts(GetMessage("LogTugboat", null, pos));
         }
 
         private void SpawnDeepSeaSalvage()
@@ -157,8 +182,8 @@ namespace Oxide.Plugins
             // Spawn a CYAN map marker for deep sea salvage
             SpawnMapMarker(markerPos, new Color(0f, 0.9f, 0.9f, 1f), new Color(0f, 0.3f, 0.5f, 0.5f), 0.08f, "Deep Sea Salvage");
 
-            PrintToChat("<color=#00DDDD>\u2693 DEEP SEA SALVAGE DETECTED!</color>\nA sunken crate with valuable cargo has been located!\n<color=#AAAAAA>Check your map for a cyan marker. Bring diving gear!</color>");
-            Puts($"[NWG Piracy] Deep sea salvage detected at {markerPos}!");
+            PrintToChat(GetMessage("SalvageSpawned", null));
+            Puts(GetMessage("LogSalvage", null, markerPos));
         }
 
         private Vector3 FindOceanPosition()
@@ -177,7 +202,7 @@ namespace Oxide.Plugins
             }
             return Vector3.zero;
         }
-        #endregion
+#endregion
     }
 }
 

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
@@ -14,11 +14,11 @@ namespace Oxide.Plugins
     [Description("Manages Entity Spawning and Player Death Restoration.")]
     public class NWGEntities : RustPlugin
     {
-        #region References
+#region References
         [PluginReference] private Plugin NWGCore;
-        #endregion
+#endregion
 
-        #region Config
+#region Config
         private class PluginConfig
         {
             public bool EnableRestoration = true;
@@ -34,9 +34,9 @@ namespace Oxide.Plugins
         }
 
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region Data (Restoration)
+#region Data (Restoration)
         private class RestoreData
         {
              public Dictionary<ulong, PlayerInventoryData> PlayerData = new Dictionary<ulong, PlayerInventoryData>();
@@ -62,9 +62,9 @@ namespace Oxide.Plugins
         }
 
         private RestoreData _restoreData;
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -101,6 +101,17 @@ namespace Oxide.Plugins
             SaveConfig();
         }
 
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                ["Restored"] = "<color=#b7d092>[NWG]</color> Your inventory has been restored.",
+                ["NoPermission"] = "<color=#d9534f>[NWG]</color> You do not have permission to restore your inventory.",
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+
         private void OnServerInitialized()
         {
             if (_config.EnableSpawning)
@@ -115,9 +126,9 @@ namespace Oxide.Plugins
             // For now, let's leave them to persist or decay naturally.
             // If we tracked them, we could kill them.
         }
-        #endregion
+#endregion
 
-        #region Restoration Logic
+#region Restoration Logic
         private void OnEntityDeath(BasePlayer player, HitInfo info)
         {
             if (!_config.EnableRestoration) return;
@@ -194,7 +205,7 @@ namespace Oxide.Plugins
             _restoreData.PlayerData.Remove(player.userID);
             Interface.Oxide.DataFileSystem.WriteObject(Name, _restoreData);
             
-            player.ChatMessage("Your inventory has been restored.");
+            player.ChatMessage(GetMessage("Restored", player.UserIDString));
         }
 
         private void RestoreContainer(ItemContainer container, List<ItemData> items)
@@ -221,9 +232,9 @@ namespace Oxide.Plugins
                 }
             }
         }
-        #endregion
+#endregion
 
-        #region Spawning Logic
+#region Spawning Logic
         // Simple tracked list of NPCs to prevent overpopulation
         private List<BaseCombatEntity> _spawnedNpcs = new List<BaseCombatEntity>();
 
@@ -263,13 +274,23 @@ namespace Oxide.Plugins
         private int CountNpcsInRadius(Vector3 pos, float radius)
         {
             int count = 0;
-            foreach(var col in Physics.OverlapSphere(pos, radius))
+            // Configurable layer mask, typically AI entities are on specific layers.
+            // Using Vis.Entities with a list buffer is more efficient than allocating arrays with OverlapSphere.
+            List<BaseEntity> list = Facepunch.Pool.GetList<BaseEntity>();
+            
+            // AI Layer = 11? Default layer for simple check. 'Default', 'Player_Server', etc.
+            // Scientists are usually in 'AI' or 'Player' layers. 
+            // LayerMask.GetMask("AI", "Player_Server")
+            Vis.Entities(pos, radius, list, LayerMask.GetMask("AI", "Player_Server"));
+
+            foreach(var ent in list)
             {
-                if (col.GetComponentInParent<BaseNpc>() != null || col.GetComponentInParent<ScientistNPC>() != null)
+                if (ent is ScientistNPC || ent is BaseNpc)
                 {
                     count++;
                 }
             }
+            Facepunch.Pool.FreeList(ref list);
             return count;
         }
 
@@ -294,7 +315,7 @@ namespace Oxide.Plugins
         {
             SpawnMonumentNPCs();
         }
-        #endregion
+#endregion
     }
 }
 

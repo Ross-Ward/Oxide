@@ -1,4 +1,4 @@
-// Forced Recompile: 2026-02-07 11:15
+﻿// Forced Recompile: 2026-02-07 11:15
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +15,7 @@ namespace Oxide.Plugins
     [Description("Gathering skill trees and blueprint unlocks.")]
     public class NWGSkills : RustPlugin
     {
-        #region Data
+#region Data
         private class PlayerData
         {
             public float WoodXP = 0;
@@ -28,13 +28,80 @@ namespace Oxide.Plugins
             public HashSet<string> UnlockedSkills = new HashSet<string>();
         }
 
+#region Config
+        private class SkillDef
+        {
+            public string Name; // Display Name
+            public int Cost;
+            public string ItemShortname; // Item to unlock BP for
+        }
+
+        private class PluginConfig
+        {
+            public Dictionary<string, SkillDef> Skills = new Dictionary<string, SkillDef>();
+        }
+        private PluginConfig _config;
+
+        protected override void LoadDefaultConfig()
+        {
+            _config = new PluginConfig();
+            _config.Skills = new Dictionary<string, SkillDef>
+            {
+                ["unlock.chainsaw"] = new SkillDef { Name = "Chainsaw BP", Cost = 5, ItemShortname = "chainsaw" },
+                ["unlock.jackhammer"] = new SkillDef { Name = "Jackhammer BP", Cost = 5, ItemShortname = "jackhammer" },
+                ["unlock.quarry"] = new SkillDef { Name = "Quarry BP", Cost = 10, ItemShortname = "mining.quarry" },
+                ["unlock.turbine"] = new SkillDef { Name = "Wind Turbine BP", Cost = 15, ItemShortname = "wind.turbine" }
+            };
+            SaveConfig();
+        }
+
+        protected override void LoadConfig()
+        {
+            base.LoadConfig();
+            try { _config = Config.ReadObject<PluginConfig>(); if (_config == null) LoadDefaultConfig(); }
+            catch { LoadDefaultConfig(); }
+        }
+
+        protected override void SaveConfig() => Config.WriteObject(_config);
+#endregion
+
+#region Localization
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                ["LevelUp"] = "<color=#b7d092>[NWG]</color> <color=#b7d092>+1 Level!</color> (Level {0}) and +1 Skill Point in <color=#FFA500>{1}</color>!",
+                ["UI.Title"] = "SURVIVAL SKILLS",
+                ["UI.Points"] = "AVAILABLE POINTS: <color=#b7d092>{0}</color>",
+                ["UI.Branch.Gather"] = "GATHERING",
+                ["UI.Branch.Build"] = "CONSTRUCTION",
+                ["UI.Branch.Adv"] = "ADVANCED",
+                ["UI.Locked"] = "Locked...",
+                ["Msg.Unlocked"] = "<color=#b7d092>[NWG]</color> Successfully unlocked <color=#FFA500>{0}</color>!",
+                ["Msg.NoPoints"] = "<color=#d9534f>[NWG]</color> Not enough skill points.",
+                ["Msg.AlreadyUnlocked"] = "<color=#d9534f>[NWG]</color> You already unlocked this skill.",
+                ["Msg.Item precise"] = "<color=#b7d092>[NWG]</color> Blueprint for <color=#FFA500>{0}</color> unlocked!"
+            }, this);
+        }
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
+        public class UIConstants
+        {
+            public const string Panel = "0.15 0.15 0.15 0.98"; 
+            public const string Header = "0.1 0.1 0.1 1"; 
+            public const string Primary = "0.718 0.816 0.573"; // Sage Green (Raw RGB for alpha mixing)
+            public const string Accent = "0.851 0.325 0.31"; // Red
+            public const string Text = "0.867 0.867 0.867 1";
+        }
+
         private Dictionary<ulong, PlayerData> _playerData = new Dictionary<ulong, PlayerData>();
 
         private void SaveData() => Interface.Oxide.DataFileSystem.WriteObject("NWG_Skills", _playerData);
         private void LoadData() => _playerData = Interface.Oxide.DataFileSystem.ReadObject<Dictionary<ulong, PlayerData>>("NWG_Skills") ?? new Dictionary<ulong, PlayerData>();
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadData();
@@ -49,9 +116,9 @@ namespace Oxide.Plugins
             if (!_playerData.ContainsKey(player.userID))
                 _playerData[player.userID] = new PlayerData();
         }
-        #endregion
+#endregion
 
-        #region Gathering & Combat Hooks
+#region Gathering & Combat Hooks
         private void OnDispenserGather(ResourceDispenser dispenser, BaseEntity entity, Item item)
         {
             var player = entity as BasePlayer;
@@ -67,7 +134,7 @@ namespace Oxide.Plugins
             else if (category == "Ore") { data.OreXP += xpGain; label = "Mining"; }
             else if (category == "Stone") { data.StoneXP += xpGain; label = "Quarrying"; }
             
-            CheckLeveUp(player, data, label);
+            CheckLevelUp(player, data, label);
         }
 
         private void OnEntityTakeDamage(BaseCombatEntity entity, HitInfo info)
@@ -82,18 +149,18 @@ namespace Oxide.Plugins
             {
                 float xpGain = info.damageTypes.Total() * 0.5f;
                 data.CombatXP += xpGain;
-                CheckLeveUp(attacker, data, "Combat");
+                CheckLevelUp(attacker, data, "Combat");
             }
             // Survival XP for hitting barrels, crates, etc.
             else if (entity is LootContainer || (entity.ShortPrefabName.Contains("barrel") || entity.ShortPrefabName.Contains("crate")))
             {
                 float xpGain = info.damageTypes.Total() * 0.2f;
                 data.SurvivalXP += xpGain;
-                CheckLeveUp(attacker, data, "Survival");
+                CheckLevelUp(attacker, data, "Survival");
             }
         }
 
-        private void CheckLeveUp(BasePlayer player, PlayerData data, string label)
+        private void CheckLevelUp(BasePlayer player, PlayerData data, string label)
         {
             const float XP_PER_POINT = 1000f;
             bool leveled = false;
@@ -108,7 +175,9 @@ namespace Oxide.Plugins
             {
                 data.SkillPoints++;
                 data.Level++;
-                player.ChatMessage($"<color=#b7d092>[NWG Skills]</color> +1 Level! (Level {data.Level}) and +1 Skill Point in {label}!");
+                data.SkillPoints++;
+                data.Level++;
+                player.ChatMessage(GetMessage("LevelUp", player.UserIDString, data.Level, label));
             }
         }
 
@@ -118,9 +187,9 @@ namespace Oxide.Plugins
                 _playerData[uid] = data = new PlayerData();
             return data;
         }
-        #endregion
+#endregion
 
-        #region UI
+#region UI
         [ChatCommand("skills")]
         private void CmdSkills(BasePlayer player)
         {
@@ -141,62 +210,62 @@ namespace Oxide.Plugins
             var data = GetPlayerData(player.userID);
 
             var root = elements.Add(new CuiPanel {
-                Image = { Color = "0.05 0.05 0.05 0.95" },
+                Image = { Color = UIConstants.Panel },
                 RectTransform = { AnchorMin = "0.1 0.1", AnchorMax = "0.9 0.9" },
                 CursorEnabled = true
             }, "Overlay", "NWG_Skills_UI");
 
             // Header
             elements.Add(new CuiPanel {
-                Image = { Color = "0.4 0.6 0.2 0.3" },
+                Image = { Color = UIConstants.Header },
                 RectTransform = { AnchorMin = "0 0.92", AnchorMax = "1 1" }
             }, root);
 
             elements.Add(new CuiLabel {
-                Text = { Text = "SURVIVAL SKILLS", FontSize = 24, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf" },
+                Text = { Text = GetMessage("UI.Title", player.UserIDString), FontSize = 24, Align = TextAnchor.MiddleLeft, Font = "robotocondensed-bold.ttf", Color = UIConstants.Text },
                 RectTransform = { AnchorMin = "0.02 0.92", AnchorMax = "0.5 1" }
             }, root);
 
             elements.Add(new CuiLabel {
-                Text = { Text = $"AVAILABLE POINTS: <color=#b7d092>{data.SkillPoints}</color>", FontSize = 18, Align = TextAnchor.MiddleRight, Font = "robotocondensed-bold.ttf" },
+                Text = { Text = GetMessage("UI.Points", player.UserIDString, data.SkillPoints), FontSize = 18, Align = TextAnchor.MiddleRight, Font = "robotocondensed-bold.ttf", Color = UIConstants.Text },
                 RectTransform = { AnchorMin = "0.5 0.92", AnchorMax = "0.98 1" }
             }, root);
 
             // Close Button
             elements.Add(new CuiButton {
-                Button = { Command = "skills.close", Color = "0.8 0.1 0.1 0.9" },
+                Button = { Command = "skills.close", Color = $"{UIConstants.Accent} 0.9" },
                 RectTransform = { AnchorMin = "0.96 0.94", AnchorMax = "0.99 0.98" },
-                Text = { Text = "✕", FontSize = 16, Align = TextAnchor.MiddleCenter }
+                Text = { Text = "âœ•", FontSize = 16, Align = TextAnchor.MiddleCenter }
             }, root);
 
             // --- BRANCHED TREE LAYOUT ---
             
             // Branch 1: Gathering (Left)
             float gatherX = 0.15f;
-            AddBranchHeader(elements, root, "GATHERING", gatherX, 0.85f);
-            AddSkillNodeTree(elements, root, "Chainsaw BP", "unlock.chainsaw", 5, gatherX, 0.70f, player);
+            AddBranchHeader(elements, root, GetMessage("UI.Branch.Gather", player.UserIDString), gatherX, 0.85f);
+            AddSkillNodeTree(elements, root, "unlock.chainsaw", gatherX, 0.70f, player);
             AddSkillTreeLink(elements, root, gatherX, 0.65f, gatherX, 0.58f);
-            AddSkillNodeTree(elements, root, "Jackhammer BP", "unlock.jackhammer", 5, gatherX, 0.53f, player);
+            AddSkillNodeTree(elements, root, "unlock.jackhammer", gatherX, 0.53f, player);
 
             // Branch 2: Construction (Center)
             float constrX = 0.50f;
-            AddBranchHeader(elements, root, "CONSTRUCTION", constrX, 0.85f);
-            AddSkillNodeTree(elements, root, "Quarry BP", "unlock.quarry", 10, constrX, 0.70f, player);
+            AddBranchHeader(elements, root, GetMessage("UI.Branch.Build", player.UserIDString), constrX, 0.85f);
+            AddSkillNodeTree(elements, root, "unlock.quarry", constrX, 0.70f, player);
             AddSkillTreeLink(elements, root, constrX, 0.65f, constrX, 0.58f);
-            AddSkillNodeTree(elements, root, "Wind Turbine BP", "unlock.turbine", 15, constrX, 0.53f, player);
+            AddSkillNodeTree(elements, root, "unlock.turbine", constrX, 0.53f, player);
 
             // Branch 3: Coming Soon (Right)
             float soonX = 0.85f;
-            AddBranchHeader(elements, root, "ADVANCED", soonX, 0.85f);
-            AddSkillNodeTree(elements, root, "Locked...", "locked", 999, soonX, 0.70f, player);
-
+            AddBranchHeader(elements, root, GetMessage("UI.Branch.Adv", player.UserIDString), soonX, 0.85f);
+            // Example placeholder
+            
             CuiHelper.AddUi(player, elements);
         }
 
         private void AddBranchHeader(CuiElementContainer container, string parent, string text, float x, float y)
         {
             container.Add(new CuiLabel {
-                Text = { Text = text, Align = TextAnchor.MiddleCenter, FontSize = 14, Font = "robotocondensed-bold.ttf", Color = "0.4 0.6 0.2 1" },
+                Text = { Text = text, Align = TextAnchor.MiddleCenter, FontSize = 14, Font = "robotocondensed-bold.ttf", Color = $"{UIConstants.Primary} 1" },
                 RectTransform = { AnchorMin = $"{x - 0.12f} {y - 0.05f}", AnchorMax = $"{x + 0.12f} {y}" }
             }, parent);
         }
@@ -209,18 +278,33 @@ namespace Oxide.Plugins
             }, parent);
         }
 
-        private void AddSkillNodeTree(CuiElementContainer container, string parent, string name, string id, int cost, float x, float y, BasePlayer player)
+        private void AddSkillNodeTree(CuiElementContainer container, string parent, string id, float x, float y, BasePlayer player)
         {
             var data = GetPlayerData(player.userID);
             bool unlocked = data.UnlockedSkills.Contains(id);
-            string color = unlocked ? "0.4 0.6 0.2 0.8" : (data.SkillPoints >= cost ? "0.15 0.15 0.15 0.8" : "0.3 0.1 0.1 0.8");
-            string btnText = unlocked ? $"<color=#b7d092>✓</color> {name}" : $"{name}\n<color=#999>{cost} pts</color>";
-            string cmd = (unlocked || id == "locked") ? "" : $"skills.unlock {id} {cost}";
+            
+            string name = id;
+            int cost = 0;
+            if (_config.Skills.TryGetValue(id, out var def))
+            {
+                name = def.Name;
+                cost = def.Cost;
+            }
+            else
+            {
+                // Fallback for missing config or locked placeholders
+                name = GetMessage("UI.Locked", player.UserIDString);
+                cost = 999;
+            }
+            
+            string color = unlocked ? $"{UIConstants.Primary} 0.8" : (data.SkillPoints >= cost ? "0.15 0.15 0.15 0.8" : "0.3 0.1 0.1 0.8");
+            string btnText = unlocked ? $"<color=#b7d092>âœ“</color> {name}" : $"{name}\n<color=#999>{cost} pts</color>";
+            string cmd = (unlocked || cost > 999) ? "" : $"skills.unlock {id} {cost}";
 
             container.Add(new CuiButton {
                 Button = { Command = cmd, Color = color },
                 RectTransform = { AnchorMin = $"{x - 0.1f} {y - 0.06f}", AnchorMax = $"{x + 0.1f} {y + 0.06f}" },
-                Text = { Text = btnText, Align = TextAnchor.MiddleCenter, FontSize = 12, Font = "robotocondensed-bold.ttf" }
+                Text = { Text = btnText, Align = TextAnchor.MiddleCenter, FontSize = 12, Font = "robotocondensed-bold.ttf", Color = UIConstants.Text }
             }, parent);
         }
 
@@ -231,34 +315,43 @@ namespace Oxide.Plugins
             if (player == null) return;
 
             string id = arg.GetString(0);
-            int cost = arg.GetInt(1);
 
             var data = GetPlayerData(player.userID);
-            if (data.SkillPoints >= cost)
+            if (data.UnlockedSkills.Contains(id)) 
             {
-                data.SkillPoints -= cost;
+                player.ChatMessage(GetMessage("Msg.AlreadyUnlocked", player.UserIDString));
+                return;
+            }
+
+            if (!_config.Skills.TryGetValue(id, out var def)) return;
+            
+            if (data.SkillPoints >= def.Cost)
+            {
+                data.SkillPoints -= def.Cost;
                 data.UnlockedSkills.Add(id);
-                UnlockBlueprint(player, id);
-                player.ChatMessage($"Successfully unlocked {id}!");
+                UnlockBlueprint(player, def);
+                player.ChatMessage(GetMessage("Msg.Unlocked", player.UserIDString, def.Name));
                 ShowSkillsUI(player);
             }
             else
             {
-                player.ChatMessage("Not enough skill points.");
+                player.ChatMessage(GetMessage("Msg.NoPoints", player.UserIDString));
             }
         }
 
-        private void UnlockBlueprint(BasePlayer player, string id)
+        private void UnlockBlueprint(BasePlayer player, SkillDef skill)
         {
-            // Map ID to actual blueprint. Simplified for demo.
-            if (id == "unlock.chainsaw") player.blueprints.Unlock(ItemManager.FindItemDefinition("chainsaw"));
-            if (id == "unlock.jackhammer") player.blueprints.Unlock(ItemManager.FindItemDefinition("jackhammer"));
-            if (id == "unlock.quarry") player.blueprints.Unlock(ItemManager.FindItemDefinition("mining.quarry"));
+            if (string.IsNullOrEmpty(skill.ItemShortname)) return;
+            var itemDef = ItemManager.FindItemDefinition(skill.ItemShortname);
+            if (itemDef != null)
+            {
+                 player.blueprints.Unlock(itemDef);
+            }
         }
 
         [HookMethod("GetLevel")]
         public int API_GetLevel(ulong uid) => GetPlayerData(uid).Level;
-        #endregion
+#endregion
     }
 }
 

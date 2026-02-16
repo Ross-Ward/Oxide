@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,20 +16,26 @@ namespace Oxide.Plugins
     [Description("In-game deep config editor supporting nested objects and lists.")]
     public class NWGConfigEditor : RustPlugin
     {
-        #region Constants
+        public static class UIConstants
+        {
+            public const string MainColor = "0.718 0.816 0.573 1"; // Sage Green
+            public const string SecondaryColor = "0.851 0.325 0.31 1"; // Red/Rust
+            public const string AccentColor = "1 0.647 0 1"; // Orange
+            public const string PanelColor = "0.15 0.15 0.15 0.98"; // Dark Panel
+            public const string HeaderColor = "0.1 0.1 0.1 1";
+            public const string TextColor = "0.867 0.867 0.867 1";
+            public const string Row1Color = "0.2 0.2 0.2 0.9";
+            public const string Row2Color = "0.18 0.18 0.18 0.9";
+        }
+
+#region Constants
         private const string PermUse = "nwgconfigeditor.use";
         private const string PanelEditor = "NWGCfg_Editor";
         private const string PanelInput = "NWGCfg_Input";
         private const string PanelMain = "NWGCfg_Main";
+#endregion
 
-        private const string ColBg = "0.05 0.05 0.07 0.98";
-        private const string ColHeader = "0.1 0.1 0.15 1";
-        private const string ColRow1 = "0.15 0.15 0.2 0.7";
-        private const string ColRow2 = "0.12 0.12 0.17 0.7";
-        private const string ColAccent = "0.35 0.6 1 1";
-        #endregion
-
-        #region Session State
+#region Session State
         private class EditorSession
         {
             public string PluginName;
@@ -40,27 +46,27 @@ namespace Oxide.Plugins
         }
 
         private readonly Dictionary<ulong, EditorSession> _sessions = new Dictionary<ulong, EditorSession>();
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init() => permission.RegisterPermission(PermUse, this);
         private void Unload() { foreach (var p in BasePlayer.activePlayerList) CloseAll(p); }
-        #endregion
+#endregion
 
-        #region Commands
+#region Commands
         [ChatCommand("config")]
         private void CmdConfig(BasePlayer player) { if (HasPerm(player)) ShowPluginList(player, 1); }
-        #endregion
+#endregion
 
-        #region UI: Plugin List
+#region UI: Plugin List
         private void ShowPluginList(BasePlayer player, int page)
         {
             CloseAll(player);
             var configs = Directory.GetFiles(Interface.Oxide.ConfigDirectory, "NWG*.json").Select(Path.GetFileNameWithoutExtension).ToList();
             var container = new CuiElementContainer();
-            var root = container.Add(new CuiPanel { Image = { Color = ColBg }, RectTransform = { AnchorMin = "0.2 0.1", AnchorMax = "0.8 0.9" }, CursorEnabled = true }, "Overlay", PanelMain);
+            var root = container.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0.2 0.1", AnchorMax = "0.8 0.9" }, CursorEnabled = true }, "Overlay", PanelMain);
             
-            container.Add(new CuiLabel { Text = { Text = "NWG CONFIG FILES", FontSize = 20, Align = TextAnchor.MiddleCenter, Color = ColAccent }, RectTransform = { AnchorMin = "0 0.9", AnchorMax = "1 1" } }, root);
+            container.Add(new CuiLabel { Text = { Text = GetMessage(Lang.TitleMain, player.UserIDString), FontSize = 20, Align = TextAnchor.MiddleCenter, Color = UIConstants.MainColor }, RectTransform = { AnchorMin = "0 0.9", AnchorMax = "1 1" } }, root);
 
             for (int i = 0; i < configs.Count; i++)
             {
@@ -74,9 +80,9 @@ namespace Oxide.Plugins
             }
             CuiHelper.AddUi(player, container);
         }
-        #endregion
+#endregion
 
-        #region UI: Deep Editor
+#region UI: Deep Editor
         private void ShowEditor(BasePlayer player)
         {
             var session = GetSession(player);
@@ -84,15 +90,15 @@ namespace Oxide.Plugins
 
             CloseAll(player);
             var container = new CuiElementContainer();
-            var root = container.Add(new CuiPanel { Image = { Color = ColBg }, RectTransform = { AnchorMin = "0.1 0.05", AnchorMax = "0.9 0.95" }, CursorEnabled = true }, "Overlay", PanelEditor);
+            var root = container.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0.1 0.05", AnchorMax = "0.9 0.95" }, CursorEnabled = true }, "Overlay", PanelEditor);
 
             // Header
-            container.Add(new CuiPanel { Image = { Color = ColHeader }, RectTransform = { AnchorMin = "0 0.93", AnchorMax = "1 1" } }, root);
-            container.Add(new CuiLabel { Text = { Text = $"EDITING: {session.PluginName} > {session.NavigationPath}", FontSize = 14, Color = ColAccent }, RectTransform = { AnchorMin = "0.1 0", AnchorMax = "0.7 1" } }, root);
+            container.Add(new CuiPanel { Image = { Color = UIConstants.HeaderColor }, RectTransform = { AnchorMin = "0 0.93", AnchorMax = "1 1" } }, root);
+            container.Add(new CuiLabel { Text = { Text = GetMessage(Lang.TitleEditing, player.UserIDString, session.PluginName, session.NavigationPath), FontSize = 14, Color = UIConstants.MainColor }, RectTransform = { AnchorMin = "0.1 0", AnchorMax = "0.7 1" } }, root);
             
-            container.Add(new CuiButton { Button = { Command = "nwgcfg.up", Color = "0.3 0.3 0.3 0.8" }, RectTransform = { AnchorMin = "0.01 0.1", AnchorMax = "0.08 0.9" }, Text = { Text = "UP" } }, root + "_Header");
-            container.Add(new CuiButton { Button = { Command = "nwgcfg.save", Color = "0.2 0.6 0.2 0.8" }, RectTransform = { AnchorMin = "0.8 0.1", AnchorMax = "0.9 0.9" }, Text = { Text = "SAVE" } }, root + "_Header");
-            container.Add(new CuiButton { Button = { Command = "nwgcfg.close", Color = "0.6 0.2 0.2 0.8" }, RectTransform = { AnchorMin = "0.92 0.1", AnchorMax = "0.98 0.9" }, Text = { Text = "✕" } }, root + "_Header");
+            container.Add(new CuiButton { Button = { Command = "nwgcfg.up", Color = "0.3 0.3 0.3 0.8" }, RectTransform = { AnchorMin = "0.01 0.1", AnchorMax = "0.08 0.9" }, Text = { Text = GetMessage(Lang.BtnUp, player.UserIDString) } }, root + "_Header");
+            container.Add(new CuiButton { Button = { Command = "nwgcfg.save", Color = "0.2 0.6 0.2 0.8" }, RectTransform = { AnchorMin = "0.8 0.1", AnchorMax = "0.9 0.9" }, Text = { Text = GetMessage(Lang.BtnSave, player.UserIDString) } }, root + "_Header");
+            container.Add(new CuiButton { Button = { Command = "nwgcfg.close", Color = UIConstants.SecondaryColor }, RectTransform = { AnchorMin = "0.92 0.1", AnchorMax = "0.98 0.9" }, Text = { Text = GetMessage(Lang.BtnClose, player.UserIDString) } }, root + "_Header");
 
             // Content
             var currentToken = GetPathToken(session.Config, session.NavigationPath);
@@ -119,13 +125,13 @@ namespace Oxide.Plugins
         {
             float yMax = 0.92f - (index * 0.055f);
             float yMin = yMax - 0.05f;
-            var row = container.Add(new CuiPanel { Image = { Color = index % 2 == 0 ? ColRow1 : ColRow2 }, RectTransform = { AnchorMin = $"0.01 {yMin}", AnchorMax = $"0.99 {yMax}" } }, parent);
+            var row = container.Add(new CuiPanel { Image = { Color = index % 2 == 0 ? UIConstants.Row1Color : UIConstants.Row2Color }, RectTransform = { AnchorMin = $"0.01 {yMin}", AnchorMax = $"0.99 {yMax}" } }, parent);
 
             container.Add(new CuiLabel { Text = { Text = key, FontSize = 11, Align = TextAnchor.MiddleLeft }, RectTransform = { AnchorMin = "0.02 0", AnchorMax = "0.4 1" } }, row);
 
             if (val is JObject || val is JArray)
             {
-                container.Add(new CuiButton { Button = { Command = $"nwgcfg.nav {key}", Color = "0.3 0.4 0.5 0.8" }, RectTransform = { AnchorMin = "0.85 0.1", AnchorMax = "0.98 0.9" }, Text = { Text = "OPEN >" } }, row);
+                container.Add(new CuiButton { Button = { Command = $"nwgcfg.nav {key}", Color = "0.3 0.4 0.5 0.8" }, RectTransform = { AnchorMin = "0.85 0.1", AnchorMax = "0.98 0.9" }, Text = { Text = GetMessage(Lang.BtnOpen, null) } }, row);
             }
             else if (val.Type == JTokenType.Boolean)
             {
@@ -135,12 +141,12 @@ namespace Oxide.Plugins
             else
             {
                 container.Add(new CuiLabel { Text = { Text = val.ToString(), FontSize = 11, Align = TextAnchor.MiddleRight }, RectTransform = { AnchorMin = "0.4 0", AnchorMax = "0.8 1" } }, row);
-                container.Add(new CuiButton { Button = { Command = $"nwgcfg.editfield {key}", Color = "0.2 0.3 0.4 0.8" }, RectTransform = { AnchorMin = "0.85 0.1", AnchorMax = "0.98 0.9" }, Text = { Text = "EDIT" } }, row);
+                container.Add(new CuiButton { Button = { Command = $"nwgcfg.editfield {key}", Color = "0.2 0.3 0.4 0.8" }, RectTransform = { AnchorMin = "0.85 0.1", AnchorMax = "0.98 0.9" }, Text = { Text = GetMessage(Lang.BtnEdit, null) } }, row);
             }
         }
-        #endregion
+#endregion
 
-        #region Actions
+#region Actions
         [ConsoleCommand("nwgcfg.open")]
         private void CCOpen(ConsoleSystem.Arg a)
         {
@@ -175,9 +181,15 @@ namespace Oxide.Plugins
         private void CCSave(ConsoleSystem.Arg a)
         {
             var s = GetSession(a.Player()); if (s == null) return;
-            File.WriteAllText(Path.Combine(Interface.Oxide.ConfigDirectory, s.PluginName + ".json"), s.Config.ToString(Formatting.Indented));
+            string configPath = Path.Combine(Interface.Oxide.ConfigDirectory, s.PluginName + ".json");
+            
+            // Backup before save
+            string backupPath = Path.Combine(Interface.Oxide.ConfigDirectory, s.PluginName + ".json.bak");
+            if (File.Exists(configPath)) File.Copy(configPath, backupPath, true);
+
+            File.WriteAllText(configPath, s.Config.ToString(Formatting.Indented));
             Server.Command($"oxide.reload {s.PluginName}");
-            a.Player().ChatMessage($"Saved and reloaded {s.PluginName}");
+            a.Player().ChatMessage(GetMessage(Lang.SavedMessage, a.Player().UserIDString, s.PluginName));
         }
 
         [ConsoleCommand("nwgcfg.close")]
@@ -219,9 +231,9 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(a.Player(), PanelInput);
             ShowEditor(a.Player());
         }
-        #endregion
+#endregion
 
-        #region Helpers
+#region Helpers
         private bool HasPerm(BasePlayer p) => p.IsAdmin || permission.UserHasPermission(p.UserIDString, PermUse);
         private void CloseAll(BasePlayer p) { CuiHelper.DestroyUi(p, PanelMain); CuiHelper.DestroyUi(p, PanelEditor); CuiHelper.DestroyUi(p, PanelInput); }
         private EditorSession GetSession(BasePlayer p) => p != null && _sessions.TryGetValue(p.userID, out var s) ? s : null;
@@ -237,11 +249,46 @@ namespace Oxide.Plugins
         {
             var container = new CuiElementContainer();
             var root = container.Add(new CuiPanel { Image = { Color = "0 0 0 0.8" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", PanelInput);
-            container.Add(new CuiPanel { Image = { Color = ColBg }, RectTransform = { AnchorMin = "0.3 0.4", AnchorMax = "0.7 0.6" } }, root);
-            container.Add(new CuiLabel { Text = { Text = "ENTER NEW VALUE:", Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0.3 0.55", AnchorMax = "0.7 0.6" } }, root);
+            container.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0.3 0.4", AnchorMax = "0.7 0.6" } }, root);
+            container.Add(new CuiLabel { Text = { Text = GetMessage(Lang.InputPrompt, p.UserIDString), Align = TextAnchor.MiddleCenter }, RectTransform = { AnchorMin = "0.3 0.55", AnchorMax = "0.7 0.6" } }, root);
             container.Add(new CuiElement { Parent = root, Components = { new CuiInputFieldComponent { Command = "nwgcfg.setvalue", Align = TextAnchor.MiddleCenter }, new CuiRectTransformComponent { AnchorMin = "0.35 0.45", AnchorMax = "0.65 0.52" } } });
             CuiHelper.AddUi(p, container);
         }
-        #endregion
+#endregion
+
+#region Localization
+        private class Lang
+        {
+            public const string NoPermission = "NoPermission";
+            public const string TitleMain = "TitleMain";
+            public const string TitleEditing = "TitleEditing";
+            public const string BtnUp = "BtnUp";
+            public const string BtnSave = "BtnSave";
+            public const string BtnClose = "BtnClose";
+            public const string BtnOpen = "BtnOpen";
+            public const string BtnEdit = "BtnEdit";
+            public const string SavedMessage = "SavedMessage";
+            public const string InputPrompt = "InputPrompt";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.NoPermission] = "No permission.",
+                [Lang.TitleMain] = "NWG CONFIG FILES",
+                [Lang.TitleEditing] = "EDITING: {0} > {1}",
+                [Lang.BtnUp] = "UP",
+                [Lang.BtnSave] = "SAVE",
+                [Lang.BtnClose] = "âœ•",
+                [Lang.BtnOpen] = "OPEN >",
+                [Lang.BtnEdit] = "EDIT",
+                [Lang.SavedMessage] = "Saved and reloaded {0} (Backup created)",
+                [Lang.InputPrompt] = "ENTER NEW VALUE:"
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
     }
 }

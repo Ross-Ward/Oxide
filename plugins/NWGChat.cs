@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -14,7 +14,7 @@ namespace Oxide.Plugins
     [Description("Manages Chat Formatting, Titles, and Groups for NWG.")]
     public class NWGChat : RustPlugin
     {
-        #region Configuration
+#region Configuration
         private class ChatGroup
         {
             public string Name;
@@ -32,14 +32,14 @@ namespace Oxide.Plugins
             public List<ChatGroup> Groups = new List<ChatGroup>();
         }
         private PluginConfig _config;
-        #endregion
+#endregion
 
-        #region State
+#region State
         // Cache player's primary group to avoid continuous LINQ
         private Dictionary<ulong, ChatGroup> _playerGroupCache = new Dictionary<ulong, ChatGroup>();
-        #endregion
+#endregion
 
-        #region Lifecycle
+#region Lifecycle
         private void Init()
         {
             LoadConfigVariables();
@@ -80,6 +80,23 @@ namespace Oxide.Plugins
             SaveConfig();
         }
 
+#region Localization
+        public static class Lang
+        {
+            public const string Muted = "Muted";
+        }
+
+        protected override void LoadDefaultMessages()
+        {
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                [Lang.Muted] = "<color=#d9534f>[NWG]</color> You are muted and cannot chat."
+            }, this);
+        }
+
+        private string GetMessage(string key, string userId, params object[] args) => string.Format(lang.GetMessage(key, this, userId), args);
+#endregion
+
         private void OnServerInitialized()
         {
             if (BasePlayer.activePlayerList != null)
@@ -102,24 +119,23 @@ namespace Oxide.Plugins
             var p = covalence.Players.FindPlayer(id);
             if (p != null) UpdatePlayerCache(p);
         }
-        #endregion
+#endregion
 
-        #region Hooks
+#region Hooks
         private object OnUserChat(IPlayer player, string message)
         {
             if (string.IsNullOrEmpty(message)) return null;
 
-            // Ignore commands early — let the game/other plugins handle them
+            // Ignore commands early â€” let the game/other plugins handle them
             if (message.StartsWith("/") || message.StartsWith("!")) return null;
 
-            // Mute Check logic removed temporarily due to API incompatibility
-            /*
-            if (player.IsMuted)
+            // Mute Check logic
+            var basePlayer = player.Object as BasePlayer;
+            if (basePlayer != null && basePlayer.HasPlayerFlag(BasePlayer.PlayerFlags.ChatMute))
             {
-                player.Message("<color=red>You are muted and cannot chat.</color>");
+                player.Reply(GetMessage(Lang.Muted, player.Id));
                 return true;
             }
-            */
 
             // Update Cache if needed (rare)
             ulong uid = ulong.Parse(player.Id);
@@ -131,7 +147,9 @@ namespace Oxide.Plugins
             string finalMessage = FormatMessage(group, player, message);
 
             // Broadcast to all
-            // We return true to suppress default chat, and send our own
+            // We return false? No, we return true to CANCEL default chat and send our own.
+            // But if we use Server.Broadcast, we might duplicate if we don't return true.
+            // Returning true prevents the default chat.
             Server.Broadcast(finalMessage);
             
             // Log to console
@@ -139,9 +157,9 @@ namespace Oxide.Plugins
             
             return true;
         }
-        #endregion
+#endregion
 
-        #region Core
+#region Core
         private void UpdatePlayerCache(IPlayer player)
         {
              // Find best group
@@ -172,7 +190,7 @@ namespace Oxide.Plugins
 
             return $"{title}{name}: {msg}";
         }
-        #endregion
+#endregion
     }
 }
 
