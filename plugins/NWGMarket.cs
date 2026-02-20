@@ -91,8 +91,10 @@ namespace Oxide.Plugins
             LoadConfigVariables();
             LoadData();
             
+            permission.RegisterPermission("nwgmarket.admin", this);
             cmd.AddChatCommand(_config.ShopCommand, this, nameof(CmdShop));
             cmd.AddChatCommand(_config.BalanceCommand, this, nameof(CmdBalance));
+            cmd.AddChatCommand("setbalance", this, nameof(CmdSetBalance));
         }
 
         private void LoadData()
@@ -106,6 +108,18 @@ namespace Oxide.Plugins
             if (_config == null || _config.Categories.Count == 0)
             {
                 LoadDefaultConfig();
+            }
+            else
+            {
+                // Ensure Special Items exists for existing installations
+                if (!_config.Categories.Any(c => c.Name == "Special Items"))
+                {
+                    var specCat = new ShopCategory { Name = "Special Items" };
+                    specCat.Items.Add(new ShopItem { ShortName = "keycard_red", Amount = 1, BuyPrice = 15000, DisplayName = "Dungeon Keycard" });
+                    _config.Categories.Add(specCat);
+                    SaveConfig();
+                    Puts("Added missing 'Special Items' category to NWG Market config.");
+                }
             }
         }
 
@@ -162,6 +176,11 @@ namespace Oxide.Plugins
             toolCat.Items.Add(new ShopItem { ShortName = "chainsaw", Amount = 1, BuyPrice = 1200, SellPrice = 240 });
             _config.Categories.Add(toolCat);
 
+            // Special
+            var specCat = new ShopCategory { Name = "Special Items" };
+            specCat.Items.Add(new ShopItem { ShortName = "keycard_red", Amount = 1, BuyPrice = 15000, DisplayName = "Dungeon Keycard" });
+            _config.Categories.Add(specCat);
+
             SaveConfig();
         }
 
@@ -207,8 +226,40 @@ namespace Oxide.Plugins
 
 #region Commands
         private void CmdShop(BasePlayer player) => ShowCategory(player, 0);
-        
+
         private void CmdBalance(BasePlayer player) => SendReply(player, GetMessage(Lang.Balance, player.UserIDString, _config.CurrencySymbol, Balance(player.userID)));
+
+        private void CmdSetBalance(BasePlayer player, string command, string[] args)
+        {
+            if (player.net.connection.authLevel < 2 && !permission.UserHasPermission(player.UserIDString, "nwgmarket.admin"))
+            {
+                SendReply(player, "You do not have permission to use this command.");
+                return;
+            }
+
+            if (args.Length < 2)
+            {
+                SendReply(player, "Usage: /setbalance <player name/ID> <amount>");
+                return;
+            }
+
+            var target = FindPlayer(args[0]);
+            if (target == null)
+            {
+                SendReply(player, $"Player '{args[0]}' not found.");
+                return;
+            }
+
+            if (!double.TryParse(args[1], out var amount))
+            {
+                SendReply(player, "Invalid amount.");
+                return;
+            }
+
+            _data.Balances[target.userID] = amount;
+            SendReply(player, $"Set {target.displayName}'s balance to {amount:N0}");
+            SaveData();
+        }
 
         [ConsoleCommand("market.buy")]
         private void ConsoleBuy(ConsoleSystem.Arg arg)
@@ -234,8 +285,9 @@ namespace Oxide.Plugins
                 var giveItem = ItemManager.Create(def, item.Amount, item.SkinId);
                 if (giveItem != null)
                 {
+                    if (!string.IsNullOrEmpty(item.DisplayName)) giveItem.name = item.DisplayName;
                     player.GiveItem(giveItem);
-                    SendReply(player, GetMessage(Lang.Purchased, player.UserIDString, item.Amount, item.ShortName));
+                    SendReply(player, GetMessage(Lang.Purchased, player.UserIDString, item.Amount, item.DisplayName ?? item.ShortName));
                 }
                 else
                 {
@@ -636,6 +688,15 @@ namespace Oxide.Plugins
             def = ItemManager.FindItemDefinition(shortname);
             if (def != null) _itemDefCache[shortname] = def;
             return def;
+        }
+
+        private BasePlayer FindPlayer(string nameOrId)
+        {
+            ulong id;
+            if (ulong.TryParse(nameOrId, out id) && id > 76561197960265728)
+                return BasePlayer.FindByID(id);
+
+            return BasePlayer.Find(nameOrId);
         }
 #endregion
     }

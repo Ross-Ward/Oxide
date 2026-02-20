@@ -6,6 +6,7 @@ using Oxide.Core;
 using Oxide.Core.Plugins;
 using Oxide.Game.Rust.Cui;
 using Newtonsoft.Json;
+using Oxide.Core.Libraries;
 using UnityEngine;
 
 namespace Oxide.Plugins
@@ -244,20 +245,37 @@ namespace Oxide.Plugins
         {
             _menuOpen.Add(p.userID);
             var e = new CuiElementContainer();
-            var bg = e.Add(new CuiPanel { Image = { Color = $"{_config.BgColour.Substring(0, _config.BgColour.LastIndexOf(' '))} {_config.GuiTransparency}" }, RectTransform = { AnchorMin = "0.3 0.1", AnchorMax = "0.7 0.9" }, CursorEnabled = true, FadeOut = 0.1f }, "Overlay", "NWGPBg");
+            
+            // Full-screen invisible panel to capture cursor and block background clicks
+            // This is the stable root for all NWGPerms UI
+            e.Add(new CuiPanel { 
+                Image = { Color = "0 0 0 0" }, 
+                RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, 
+                CursorEnabled = true 
+            }, "Overlay", "NWGPBg");
+
+            // Visible Background Panel (Centered)
+            var bg = e.Add(new CuiPanel { 
+                Image = { Color = $"{_config.BgColour.Substring(0, _config.BgColour.LastIndexOf(' '))} {_config.GuiTransparency}" }, 
+                RectTransform = { AnchorMin = "0.2 0.05", AnchorMax = "0.8 0.95" }, // Slightly larger for better fit
+                FadeOut = 0.1f 
+            }, "NWGPBg", "NWGPBg_Visible");
+
             // Header bar
-            e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0 0.95", AnchorMax = "1 1" } }, bg);
+            e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0 0.95", AnchorMax = "1 1" } }, "NWGPBg_Visible");
             // Footer bar
-            e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 0.05" } }, bg);
-            // Close button with accent color
-            e.Add(new CuiButton { Button = { Command = "nwgp.close", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.955 0.96", AnchorMax = "0.99 0.995" }, Text = { Text = "âœ–", FontSize = 12, Align = TextAnchor.MiddleCenter } }, bg);
+            e.Add(new CuiPanel { Image = { Color = _config.HeaderColour }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 0.05" } }, "NWGPBg_Visible");
+            // Close button (Top-Right)
+            e.Add(new CuiButton { Button = { Command = "nwgp.close", Color = _config.OffColour }, RectTransform = { AnchorMin = "0.96 0.96", AnchorMax = "0.995 0.995" }, Text = { Text = "✕", FontSize = 12, Align = TextAnchor.MiddleCenter } }, "NWGPBg_Visible");
+            
             CuiHelper.AddUi(p, e);
         }
 
         void DrawMainUI(BasePlayer p, bool group, int page)
         {
             var e = new CuiElementContainer();
-            var m = e.Add(new CuiPanel { Image = { Color = "0 0 0 0" }, RectTransform = { AnchorMin = "0.32 0.1", AnchorMax = "0.68 0.9" }, CursorEnabled = true }, "Overlay", "NWGPMain");
+            // Parent to NWGPBg_Visible
+            var m = e.Add(new CuiPanel { Image = { Color = "0 0 0 0" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" } }, "NWGPBg_Visible", "NWGPMain");
             string switchLabel = group ? "Players" : "Groups";
             string currentLabel = !group ? "Players" : "Groups";
 
@@ -299,7 +317,7 @@ namespace Oxide.Plugins
             }
 
             if (count > page * 20)
-                e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} {page + 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.8 0.015", AnchorMax = "0.9 0.045" }, Text = { Text = "â†’", FontSize = 14, Align = TextAnchor.MiddleCenter } }, m);
+                e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} {page + 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.8 0.015", AnchorMax = "0.9 0.045" }, Text = { Text = "→", FontSize = 14, Align = TextAnchor.MiddleCenter } }, m);
             if (page > 1)
                 e.Add(new CuiButton { Button = { Command = $"nwgp.toggle {group} {page - 1}", Color = _config.ButtonColour }, RectTransform = { AnchorMin = "0.1 0.015", AnchorMax = "0.2 0.045" }, Text = { Text = "â†", FontSize = 14, Align = TextAnchor.MiddleCenter } }, m);
 
@@ -312,7 +330,7 @@ namespace Oxide.Plugins
             var backPage = group == "false" ? s.PlayerPage : s.GroupPage;
             string toggle = group == "true" ? "false" : "true";
             var e = new CuiElementContainer();
-            var m = e.Add(new CuiPanel { Image = { Color = "0 0 0 0" }, RectTransform = { AnchorMin = "0.32 0.1", AnchorMax = "0.68 0.9" }, CursorEnabled = true }, "Overlay", "NWGPPerms");
+            var m = e.Add(new CuiPanel { Image = { Color = "0 0 0 0" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" } }, "NWGPBg_Visible", "NWGPPerms");
 
             int total = 0, pos = 60 - (page * 60);
             for (int i = 0; i < _plugList.Count; i++)
@@ -351,7 +369,7 @@ namespace Oxide.Plugins
         {
             var s = GetSession(p);
             var e = new CuiElementContainer();
-            var m = e.Add(new CuiPanel { Image = { Color = "0 0 0 0" }, RectTransform = { AnchorMin = "0.32 0.1", AnchorMax = "0.68 0.9" }, CursorEnabled = true }, "Overlay", "NWGPPerms");
+            var m = e.Add(new CuiPanel { Image = { Color = "0 0 0 0" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" } }, "NWGPBg_Visible", "NWGPPerms");
 
             int total = 0, pos = 20 - (page * 20);
             // Grant/Revoke All buttons
@@ -700,7 +718,7 @@ namespace Oxide.Plugins
                 }
                 else
                 {
-                    var userData = ProtoStorage.Load<Dictionary<string, Oxide.Core.Libraries.UserData>>(new[] { "oxide.users" });
+                    var userData = global::Oxide.Core.ProtoStorage.Load<Dictionary<string, global::Oxide.Core.Libraries.UserData>>(new[] { "oxide.users" });
                     if (userData == null) return;
                     userData = userData.Where(x => x.Value.Perms.Count > 0).ToDictionary(x => x.Key, x => x.Value);
                     _data.Entries = _data.Entries.Where(x => x.Value.IsPlayer == 0).ToDictionary(x => x.Key, x => x.Value);
@@ -745,7 +763,7 @@ namespace Oxide.Plugins
         void PurgePlayers()
         {
             var allPerms = permission.GetPermissions();
-            var userData = ProtoStorage.Load<Dictionary<string, Oxide.Core.Libraries.UserData>>(new[] { "oxide.users" });
+            var userData = global::Oxide.Core.ProtoStorage.Load<Dictionary<string, global::Oxide.Core.Libraries.UserData>>(new[] { "oxide.users" });
             if (userData == null) return;
             foreach (var u in userData.Where(x => x.Value.Perms.Count > 0))
                 foreach (var pm in u.Value.Perms.ToList())

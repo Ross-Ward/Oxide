@@ -280,7 +280,7 @@ namespace Oxide.Plugins
                 [Lang.TitleEditing] = "EDITING: {0} > {1}",
                 [Lang.BtnUp] = "UP",
                 [Lang.BtnSave] = "SAVE",
-                [Lang.BtnClose] = "âœ•",
+                [Lang.BtnClose] = "✕",
                 [Lang.BtnOpen] = "OPEN >",
                 [Lang.BtnEdit] = "EDIT",
                 [Lang.SavedMessage] = "Saved and reloaded {0} (Backup created)",

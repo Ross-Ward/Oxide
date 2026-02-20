@@ -144,7 +144,7 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, LayerName);
             var container = new CuiElementContainer();
 
-            // â”€â”€ Root panel: sits just below the compass â”€â”€
+            // ── Root panel: sits just below the compass ──
             // Compass occupies roughly 0.35-0.65 horizontally, top ~0.96-1.0
             // We position our bar at the same width, just beneath it
             container.Add(new CuiPanel
@@ -154,7 +154,7 @@ namespace Oxide.Plugins
                 CursorEnabled = false
             }, "Overlay", LayerName);
 
-            // â”€â”€ Build the single-line content â”€â”€
+            // ── Build the single-line content ──
             string line = BuildLine(player);
 
             container.Add(new CuiLabel
@@ -174,10 +174,10 @@ namespace Oxide.Plugins
 
         private string BuildLine(BasePlayer player)
         {
-            var sep = $" <color={_config.SeparatorColor}>â”‚</color> ";
+            var sep = $" <color={_config.SeparatorColor}>│</color> ";
             var parts = new List<string>();
 
-            // â”€â”€ Player identity: Name + Clan â”€â”€
+            // ── Player identity: Name + Clan ──
             string identity = "";
             string clanTag = GetClanTag(player.userID);
             if (!string.IsNullOrEmpty(clanTag)) identity += $"<color={_config.ClanColor}>[{clanTag}]</color> ";

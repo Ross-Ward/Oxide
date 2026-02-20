@@ -138,7 +138,7 @@ namespace Oxide.Plugins
             // Security Lock
             if (player.IsAdmin && !_unlockedAdmins.Contains(player.userID))
             {
-                if (command == "login" || command == "setadminpass" || command.StartsWith("nwgadmin.")) return null;
+                if (command == "login" || command == "setadmin" || command == "setadminpass" || command.StartsWith("nwgadmin.")) return null;
                 return false; 
             }
             
@@ -153,11 +153,15 @@ namespace Oxide.Plugins
             var basePlayer = player.Object as BasePlayer;
             if (basePlayer == null) return null;
 
-            // Security Lock â€” suppress chat for locked admins
+            // Security Lock — suppress chat for locked admins
             if (basePlayer.IsAdmin && !_unlockedAdmins.Contains(basePlayer.userID))
             {
+                if (message.StartsWith("/login") || message.StartsWith("/setadminpass") || message.StartsWith("/setadmin"))
+                    return null; // Allow security commands
+
+                CheckAdminSecurity(basePlayer); // Re-show UI if they try to chat/interact
                 basePlayer.ChatMessage(GetMessage(Lang.LoginRequired, basePlayer.UserIDString));
-                return true; // handled â€” suppress the message
+                return true; // handled — suppress the message
             }
             
             // Freeze Lock
@@ -190,18 +194,15 @@ namespace Oxide.Plugins
             if (!player.IsAdmin) return;
             if (_unlockedAdmins.Contains(player.userID)) return;
 
-            player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
-            player.SendNetworkUpdateImmediate();
-
+            // Note: We avoid player.SetPlayerFlag(ReceivingSnapshot, true) as it often causes clients to get 'stuck'.
+            
             if (!_securityData.AdminHashes.ContainsKey(player.userID))
             {
-               
                 DisplaySetupUI(player);
                 SendReply(player, GetMessage(Lang.SecurityWarning, player.UserIDString));
             }
             else
             {
-              
                 DisplayLoginUI(player);
                 SendReply(player, GetMessage(Lang.SecurityAlert, player.UserIDString));
             }
@@ -209,11 +210,19 @@ namespace Oxide.Plugins
 #endregion
 
 #region Core Admin Commands (Security & Utils)
+        [ChatCommand("setadmin")]
+        private void CmdAdminSetupAlias(BasePlayer player, string command, string[] args) => CmdAdminSetup(player, command, args);
+
         [ChatCommand("setadminpass")]
         private void CmdAdminSetup(BasePlayer player, string command, string[] args)
         {
             if (!player.IsAdmin) return;
-            if (_securityData.AdminHashes.ContainsKey(player.userID)) { SendReply(player, GetMessage(Lang.PasswordSetError, player.UserIDString)); return; }
+            // Allow if password not set OR if admin is already unlocked (to change it)
+            if (_securityData.AdminHashes.ContainsKey(player.userID) && !_unlockedAdmins.Contains(player.userID)) 
+            { 
+                SendReply(player, GetMessage(Lang.PasswordSetError, player.UserIDString)); 
+                return; 
+            }
             if (args.Length == 0) { SendReply(player, GetMessage(Lang.PasswordUsage, player.UserIDString)); return; }
             string password = string.Join(" ", args);
             _securityData.AdminHashes[player.userID] = HashPassword(password);
@@ -635,9 +644,27 @@ namespace Oxide.Plugins
             string panelName = "NWG_Sec_Login";
             CuiHelper.DestroyUi(player, panelName);
 
-            elements.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
-            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIWarning, player.UserIDString), FontSize = 30, Align = TextAnchor.MiddleCenter, Color = UIConstants.AccentColor }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
-            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIAdminLocked, player.UserIDString), FontSize = 18, Align = TextAnchor.MiddleCenter, Color = UIConstants.TextColor }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
+            elements.Add(new CuiPanel { Image = { Color = UIConstants.PanelColor }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", panelName);
+            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIAdminLocked, player.UserIDString), FontSize = 30, Align = TextAnchor.MiddleCenter, Color = UIConstants.AccentColor }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
+            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UILoginPrompt, player.UserIDString), FontSize = 18, Align = TextAnchor.MiddleCenter, Color = UIConstants.TextColor }, RectTransform = { AnchorMin = "0 0.5", AnchorMax = "1 0.6" } }, panelName);
+            
+            // Input Label
+            elements.Add(new CuiLabel { Text = { Text = "ENTER PASSWORD:", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.5" }, RectTransform = { AnchorMin = "0.4 0.36", AnchorMax = "0.6 0.4" } }, panelName);
+
+            // Input Background
+            elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.9" }, RectTransform = { AnchorMin = "0.4 0.3", AnchorMax = "0.6 0.35" } }, panelName, panelName + "_input_bg");
+
+            // Password Input
+            elements.Add(new CuiElement { 
+                Parent = panelName, 
+                Components = { 
+                    new CuiInputFieldComponent { Command = "nwgadmin.trylogin", Align = TextAnchor.MiddleCenter, FontSize = 16, IsPassword = true }, 
+                    new CuiRectTransformComponent { AnchorMin = "0.4 0.3", AnchorMax = "0.6 0.35" } 
+                } 
+            });
+
+            elements.Add(new CuiButton { Button = { Command = "nwgadmin.submitlogin", Color = UIConstants.MainColor }, RectTransform = { AnchorMin = "0.45 0.2", AnchorMax = "0.55 0.26" }, Text = { Text = "LOGIN", Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", FontSize = 16 } }, panelName);
+            
             CuiHelper.AddUi(player, elements);
         }
 
@@ -648,9 +675,27 @@ namespace Oxide.Plugins
             CuiHelper.DestroyUi(player, panelName);
             CuiHelper.DestroyUi(player, "NWG_Sec_Login");
 
-            elements.Add(new CuiPanel { Image = { Color = "0 0 0 1" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = false }, "Overlay", panelName);
-             elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIAdminSetup, player.UserIDString), FontSize = 35, Align = TextAnchor.MiddleCenter, Color = UIConstants.SecondaryColor }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
-            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UILoginPrompt, player.UserIDString), FontSize = 18, Align = TextAnchor.MiddleCenter, Color = UIConstants.TextColor }, RectTransform = { AnchorMin = "0 0.4", AnchorMax = "1 0.6" } }, panelName);
+            elements.Add(new CuiPanel { Image = { Color = "0 0 0 0.98" }, RectTransform = { AnchorMin = "0 0", AnchorMax = "1 1" }, CursorEnabled = true }, "Overlay", panelName);
+            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIWarning, player.UserIDString), FontSize = 35, Align = TextAnchor.MiddleCenter, Color = UIConstants.SecondaryColor }, RectTransform = { AnchorMin = "0 0.6", AnchorMax = "1 0.7" } }, panelName);
+            elements.Add(new CuiLabel { Text = { Text = GetMessage(Lang.UIAdminLocked, player.UserIDString), FontSize = 18, Align = TextAnchor.MiddleCenter, Color = UIConstants.TextColor }, RectTransform = { AnchorMin = "0 0.5", AnchorMax = "1 0.6" } }, panelName);
+            
+            // Input Label
+            elements.Add(new CuiLabel { Text = { Text = "CREATE NEW PASSWORD:", FontSize = 12, Align = TextAnchor.MiddleCenter, Color = "1 1 1 0.5" }, RectTransform = { AnchorMin = "0.4 0.36", AnchorMax = "0.6 0.4" } }, panelName);
+
+            // Input Background
+            elements.Add(new CuiPanel { Image = { Color = "0.1 0.1 0.1 0.9" }, RectTransform = { AnchorMin = "0.4 0.3", AnchorMax = "0.6 0.35" } }, panelName, panelName + "_input_bg");
+
+            // Password Input
+            elements.Add(new CuiElement { 
+                Parent = panelName, 
+                Components = { 
+                    new CuiInputFieldComponent { Command = "nwgadmin.trysetpass", Align = TextAnchor.MiddleCenter, FontSize = 16, IsPassword = true }, 
+                    new CuiRectTransformComponent { AnchorMin = "0.4 0.3", AnchorMax = "0.6 0.35" } 
+                } 
+            });
+
+            elements.Add(new CuiButton { Button = { Command = "nwgadmin.submitsetup", Color = UIConstants.MainColor }, RectTransform = { AnchorMin = "0.42 0.2", AnchorMax = "0.58 0.26" }, Text = { Text = "CREATE PASSWORD", Align = TextAnchor.MiddleCenter, Font = "robotocondensed-bold.ttf", FontSize = 16 } }, panelName);
+            
             CuiHelper.AddUi(player, elements);
         }
         
@@ -691,16 +736,15 @@ namespace Oxide.Plugins
             if (VerifyPassword(password, hash))
             {
                 _unlockedAdmins.Add(player.userID);
-                player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, false);
                 player.SendNetworkUpdateImmediate();
                 DestroyUI(player);
                 _tempPasswords.Remove(player.userID);
-                player.ChatMessage("<color=green>Admin Access Granted.</color>");
+                SendReply(player, "<color=green>Admin Access Granted.</color>");
             }
             else
             {
                 _tempPasswords.Remove(player.userID);
-                player.ChatMessage("<color=red>Incorrect Password.</color>");
+                SendReply(player, "<color=red>Incorrect Password.</color>");
             }
         }
         
@@ -981,7 +1025,7 @@ namespace Oxide.Plugins
                 [Lang.SpawnedEntity] = "Spawned {0}",
                 [Lang.SpawnFail] = "Could not spawn entity. Check prefab path.",
                 [Lang.RocketLaunch] = "{0} is blasting off again!",
-                [Lang.UIClose] = "âœ•",
+                [Lang.UIClose] = "✕",
                 [Lang.UIAdminSetup] = "ADMIN ACCESS LOCKED",
                 [Lang.UIAdminLocked] = "You are an Admin without a password.\nPlease set one now: /setadminpass <password>",
                 [Lang.UILoginPrompt] = "Login Required: /login <password>",

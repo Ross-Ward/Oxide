@@ -386,19 +386,19 @@ namespace Oxide.Plugins
             float worldSize = ConVar.Server.worldsize;
             float offset = worldSize / 2f;
             const float cellSize = 150f;
-            int maxCell = (int)(worldSize / cellSize) - 1;
-            int x = Mathf.Clamp(Mathf.FloorToInt((pos.x + offset) / cellSize), 0, maxCell);
-            int z = Mathf.Clamp(Mathf.FloorToInt((pos.z + offset) / cellSize), 0, maxCell);
+            
+            int xIdx = Mathf.FloorToInt((pos.x + offset) / cellSize);
+            int zIdx = Mathf.FloorToInt((worldSize - (pos.z + offset)) / cellSize); 
             
             string col = "";
-            int cx = x;
+            int cx = xIdx;
             do
             {
-                col = (char)('A' + cx % 26) + col;
-                cx = cx / 26 - 1;
+                col = (char)('A' + (cx % 26)) + col;
+                cx = (cx / 26) - 1;
             } while (cx >= 0);
             
-            return $"{col}{z}";
+            return $"{col}{zIdx}";
         }
         
 #endregion

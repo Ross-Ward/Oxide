@@ -557,7 +557,7 @@ namespace Oxide.Plugins
             elements.Add(new CuiButton {
                 Button = { Command = "nwg_info.close", Color = "0.8 0.1 0.1 0.9" },
                 RectTransform = { AnchorMin = "0.95 0.925", AnchorMax = "0.985 0.975" },
-                Text = { Text = "âœ•", FontSize = 20, Align = TextAnchor.MiddleCenter }
+                Text = { Text = "✕", FontSize = 20, Align = TextAnchor.MiddleCenter }
             }, root);
 
             // Content Area
@@ -615,12 +615,12 @@ namespace Oxide.Plugins
                     elements.Add(new CuiButton {
                         Button = { Command = "nwg_info.scroll -1", Color = "0.25 0.25 0.25 0.9" },
                         RectTransform = { AnchorMin = "0.93 0.75", AnchorMax = "0.98 0.88" },
-                        Text = { Text = "â–²", FontSize = 18, Align = TextAnchor.MiddleCenter }
+                        Text = { Text = "▲", FontSize = 18, Align = TextAnchor.MiddleCenter }
                     }, contentPanel);
                     elements.Add(new CuiButton {
                         Button = { Command = "nwg_info.scroll 1", Color = "0.25 0.25 0.25 0.9" },
                         RectTransform = { AnchorMin = "0.93 0.05", AnchorMax = "0.98 0.18" },
-                        Text = { Text = "â–¼", FontSize = 18, Align = TextAnchor.MiddleCenter }
+                        Text = { Text = "▼", FontSize = 18, Align = TextAnchor.MiddleCenter }
                     }, contentPanel);
                 }
             }

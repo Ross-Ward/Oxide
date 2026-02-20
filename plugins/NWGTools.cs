@@ -206,7 +206,7 @@ namespace Oxide.Plugins
             elements.Add(new CuiButton {
                 Button = { Command = "nwg_tools.close", Color = "0.851 0.325 0.31 1" },
                 RectTransform = { AnchorMin = "0.92 0.9", AnchorMax = "0.98 0.98" },
-                Text = { Text = "âœ•", FontSize = 18, Align = TextAnchor.MiddleCenter }
+                Text = { Text = "✕", FontSize = 18, Align = TextAnchor.MiddleCenter }
             }, root);
 
             // Action Buttons
